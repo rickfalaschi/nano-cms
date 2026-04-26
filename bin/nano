@@ -1,0 +1,286 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+if (PHP_SAPI !== 'cli') {
+    fwrite(STDERR, "This script must be run from the command line.\n");
+    exit(1);
+}
+
+$rootPath = dirname(__DIR__);
+require_once $rootPath . '/core/Bootstrap.php';
+
+$args = array_slice($argv, 1);
+$command = $args[0] ?? 'help';
+$rest = array_slice($args, 1);
+
+// Parse --key=value flags from $rest
+$flags = [];
+$positional = [];
+foreach ($rest as $arg) {
+    if (str_starts_with($arg, '--')) {
+        $eq = strpos($arg, '=');
+        if ($eq === false) {
+            $flags[substr($arg, 2)] = true;
+        } else {
+            $flags[substr($arg, 2, $eq - 2)] = substr($arg, $eq + 1);
+        }
+    } else {
+        $positional[] = $arg;
+    }
+}
+
+/**
+ * Boot the app, handling SetupException so install-related commands keep working.
+ */
+$bootForInstall = function () use ($rootPath) {
+    Nano\Autoloader::register($rootPath);
+    require_once $rootPath . '/core/helpers.php';
+    Nano\Env::load($rootPath . '/.env');
+    $config = new Nano\Config($rootPath);
+
+    // Ensure DB exists, then construct App with relaxed auto-install
+    Nano\Installer::ensureDatabase($config->get('database'));
+
+    // We bypass App::register's auto-install gate by booting after DB exists.
+    // But App::register still runs the gate — to allow `install` to run when
+    // INITIAL_USER_* are missing, we provide a temporary env so the gate passes,
+    // then rely on the install command to create the user explicitly.
+    return null;
+};
+
+$commands = [
+    'help' => function () {
+        echo "Nano CMS — CLI\n";
+        echo "Usage: bin/nano <command> [args] [--flags]\n\n";
+        echo "Commands:\n";
+        echo "  install                              Run a complete install (DB + migrations + user)\n";
+        echo "    --email=<email>                    Override INITIAL_USER_EMAIL from .env\n";
+        echo "    --password=<password>              Override INITIAL_USER_PASSWORD from .env\n";
+        echo "    --name=<name>                      Override INITIAL_USER_NAME from .env\n";
+        echo "  migrate                              Run pending migrations\n";
+        echo "  migrate:status                       Show pending migrations\n";
+        echo "  user:create <email> <pwd> <name>     Create a new admin user\n";
+        echo "  page:sync                            Create page records from site.json\n";
+        echo "  schema:validate                      Validate site.json structure\n";
+        echo "  serve [port]                         Start built-in PHP server\n";
+        echo "\n";
+    },
+
+    'install' => function () use ($rootPath, $flags) {
+        Nano\Autoloader::register($rootPath);
+        require_once $rootPath . '/core/helpers.php';
+        Nano\Env::load($rootPath . '/.env');
+
+        $config = new Nano\Config($rootPath);
+        $dbConfig = $config->get('database');
+
+        echo "Nano CMS — Install\n";
+        echo "──────────────────\n\n";
+
+        echo "1. Database `{$dbConfig['database']}` … ";
+        try {
+            Nano\Installer::ensureDatabase($dbConfig);
+            echo "OK\n";
+        } catch (\Throwable $e) {
+            echo "FAIL\n";
+            fwrite(STDERR, "   " . $e->getMessage() . "\n");
+            fwrite(STDERR, "   Check DB_HOST, DB_USERNAME, DB_PASSWORD in .env\n");
+            exit(1);
+        }
+
+        // Construct a minimal App (no session/auth — those are web-only)
+        $app = new Nano\App($config);
+        $app->db = new Nano\Database($dbConfig);
+
+        // Build user override from flags (override .env values when provided)
+        $userOverride = [];
+        if (isset($flags['email']))    $userOverride['email']    = (string) $flags['email'];
+        if (isset($flags['password'])) $userOverride['password'] = (string) $flags['password'];
+        if (isset($flags['name']))     $userOverride['name']     = (string) $flags['name'];
+
+        try {
+            $report = Nano\Installer::install($app, $userOverride);
+        } catch (\Throwable $e) {
+            fwrite(STDERR, "Install failed: " . $e->getMessage() . "\n");
+            exit(1);
+        }
+
+        $migCount = count($report['migrations']);
+        echo "2. Migrations: " . ($migCount === 0 ? 'up to date' : "{$migCount} applied") . "\n";
+        foreach ($report['migrations'] as $m) {
+            echo "   + {$m}\n";
+        }
+
+        echo "3. Pages: " . ($report['pages_synced'] === 0 ? 'already synced' : "{$report['pages_synced']} added") . "\n";
+
+        if ($report['user_created'] !== null) {
+            echo "4. Initial user: {$report['user_created']}\n";
+            echo "\n✓ Installed.\n";
+            echo "  → Open /admin/login and sign in.\n";
+            return;
+        }
+
+        if ($report['user_skipped_reason'] === 'users_already_exist') {
+            echo "4. Initial user: skipped (database already has users)\n";
+            echo "\n✓ Already installed.\n";
+            return;
+        }
+
+        echo "4. Initial user: skipped (no credentials provided)\n";
+        echo "\n";
+        echo "  → Add INITIAL_USER_EMAIL and INITIAL_USER_PASSWORD to .env, then re-run.\n";
+        echo "  → Or:  ./bin/nano install --email=you@example.com --password=secret --name=\"Your Name\"\n";
+        exit(2);
+    },
+
+    'migrate' => function () use ($rootPath) {
+        $app = Nano\Bootstrap::boot($rootPath);
+        $migrator = new Nano\Migrator($app->db, $rootPath . '/migrations');
+        $applied = $migrator->migrate();
+        if ($applied === []) {
+            echo "Nothing to migrate.\n";
+            return;
+        }
+        foreach ($applied as $name) {
+            echo "Applied: {$name}\n";
+        }
+    },
+
+    'migrate:status' => function () use ($rootPath) {
+        $app = Nano\Bootstrap::boot($rootPath);
+        $migrator = new Nano\Migrator($app->db, $rootPath . '/migrations');
+        $pending = $migrator->pending();
+        if ($pending === []) {
+            echo "All migrations are up to date.\n";
+            return;
+        }
+        echo "Pending migrations:\n";
+        foreach ($pending as $file) {
+            echo "  - " . basename($file) . "\n";
+        }
+    },
+
+    'user:create' => function () use ($rootPath, $positional) {
+        $app = Nano\Bootstrap::boot($rootPath);
+        [$email, $password, $name] = [$positional[0] ?? null, $positional[1] ?? null, $positional[2] ?? null];
+        if (!$email || !$password || !$name) {
+            fwrite(STDERR, "Usage: bin/nano user:create <email> <password> <name>\n");
+            exit(1);
+        }
+        $existing = Nano\Models\User::findByEmail($email);
+        if ($existing !== null) {
+            fwrite(STDERR, "User already exists: {$email}\n");
+            exit(1);
+        }
+        $user = Nano\Models\User::create($email, $password, $name);
+        echo "Created user #{$user->id}: {$user->email}\n";
+    },
+
+    'page:sync' => function () use ($rootPath) {
+        $app = Nano\Bootstrap::boot($rootPath);
+        $pages = $app->config->pages();
+        $created = 0;
+        $updated = 0;
+        foreach ($pages as $key => $page) {
+            $title = (string) ($page['label'] ?? $key);
+            $existing = Nano\Models\Page::findByKey((string) $key);
+            if ($existing === null) {
+                Nano\Models\Page::upsert((string) $key, $title, []);
+                $created++;
+            } else {
+                if ($existing->title !== $title) {
+                    Nano\Models\Page::upsert((string) $key, $title, $existing->fields);
+                    $updated++;
+                }
+            }
+        }
+        echo "Pages synced. Created: {$created}, updated: {$updated}.\n";
+    },
+
+    'schema:validate' => function () use ($rootPath) {
+        $app = Nano\Bootstrap::boot($rootPath);
+        $issues = [];
+        $site = $app->config->site();
+
+        if (!isset($site['pages']) || !is_array($site['pages'])) {
+            $issues[] = 'site.json is missing "pages" object.';
+        }
+        if (!isset($site['item_types']) || !is_array($site['item_types'])) {
+            $issues[] = 'site.json is missing "item_types" object.';
+        }
+        if (!isset($site['taxonomies'])) {
+            $issues[] = 'site.json is missing "taxonomies" object (use {} if none).';
+        }
+
+        foreach (($site['pages'] ?? []) as $key => $page) {
+            if (!isset($page['template'])) {
+                $issues[] = "Page \"{$key}\" is missing a template.";
+            }
+        }
+        foreach (($site['item_types'] ?? []) as $type => $def) {
+            if (!isset($def['template'])) {
+                $issues[] = "Item type \"{$type}\" is missing a template.";
+            }
+            if (!isset($def['slug'])) {
+                $issues[] = "Item type \"{$type}\" is missing a slug.";
+            }
+        }
+        foreach (($site['taxonomies'] ?? []) as $tax => $def) {
+            if (!isset($def['template'])) {
+                $issues[] = "Taxonomy \"{$tax}\" is missing a template.";
+            }
+        }
+        foreach (($site['forms'] ?? []) as $form => $def) {
+            if (!isset($def['fields']) || !is_array($def['fields']) || $def['fields'] === []) {
+                $issues[] = "Form \"{$form}\" is missing a non-empty 'fields' array.";
+            }
+            foreach ((array)($def['fields'] ?? []) as $i => $f) {
+                if (!isset($f['name'])) {
+                    $issues[] = "Form \"{$form}\" field #{$i} is missing 'name'.";
+                }
+            }
+        }
+        foreach (($site['options'] ?? []) as $opt => $def) {
+            if (!isset($def['fields']) || !is_array($def['fields'])) {
+                $issues[] = "Options page \"{$opt}\" is missing 'fields' array.";
+            }
+        }
+
+        if ($issues === []) {
+            echo "site.json is valid.\n";
+        } else {
+            echo "Issues found in site.json:\n";
+            foreach ($issues as $i) {
+                echo "  - {$i}\n";
+            }
+            exit(1);
+        }
+    },
+
+    'serve' => function () use ($rootPath, $positional) {
+        $port = (int) ($positional[0] ?? 8080);
+        echo "Nano CMS serving on http://localhost:{$port}\n";
+        passthru(sprintf(
+            'php -S localhost:%d -t %s %s',
+            $port,
+            escapeshellarg($rootPath . '/public'),
+            escapeshellarg($rootPath . '/public/index.php')
+        ));
+    },
+];
+
+if (!isset($commands[$command])) {
+    fwrite(STDERR, "Unknown command: {$command}\n");
+    fwrite(STDERR, "Run 'bin/nano help' for available commands.\n");
+    exit(1);
+}
+
+try {
+    $commands[$command]();
+} catch (Nano\SetupException $e) {
+    fwrite(STDERR, "Setup error: " . $e->getMessage() . "\n");
+    fwrite(STDERR, "Run: ./bin/nano install\n");
+    exit(2);
+}

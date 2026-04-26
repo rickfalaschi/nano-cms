@@ -1,0 +1,222 @@
+<?php
+/**
+ * @var string $_content
+ * @var \Nano\Models\User|null $user
+ * @var \Nano\Config $config
+ * @var string|null $flash_success
+ * @var string|null $flash_error
+ */
+$siteName = (string) ($config->site('site.name') ?? 'Nano CMS');
+$itemTypes = $config->itemTypes();
+$pages = $config->pages();
+$taxonomies = $config->taxonomies();
+$currentPath = $_SERVER['REQUEST_URI'] ?? '';
+$currentPathOnly = parse_url($currentPath, PHP_URL_PATH) ?: '';
+$isActive = function (string $needle) use ($currentPathOnly): bool {
+    return $needle !== '' && str_starts_with($currentPathOnly, $needle);
+};
+$isExact = function (string $needle) use ($currentPathOnly): bool {
+    return $currentPathOnly === $needle || $currentPathOnly === $needle . '/';
+};
+$initial = $user !== null ? mb_strtoupper(mb_substr($user->name, 0, 1, 'UTF-8'), 'UTF-8') : '?';
+
+$itemCounts = [];
+foreach ($itemTypes as $type => $def) {
+    $itemCounts[(string) $type] = (int) \Nano\App::instance()->db->fetchColumn(
+        'SELECT COUNT(*) FROM items WHERE type = ?',
+        [$type]
+    );
+}
+
+$formsList = (array) ($config->site('forms') ?? []);
+$formCounts = [];
+foreach ($formsList as $fid => $fdef) {
+    $formCounts[(string) $fid] = (int) \Nano\App::instance()->db->fetchColumn(
+        'SELECT COUNT(*) FROM form_submissions WHERE form_id = ?',
+        [(string) $fid]
+    );
+}
+
+$optionsList = (array) ($config->site('options') ?? []);
+
+$icon = function (string $name): string {
+    $svg = match ($name) {
+        'home'      => '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/>',
+        'file-text' => '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/>',
+        'folder'    => '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',
+        'tag'       => '<path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><circle cx="7" cy="7" r="1.5"/>',
+        'page'      => '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>',
+        'image'     => '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>',
+        'users'     => '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+        'inbox'     => '<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
+        'sliders'   => '<line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>',
+        default     => '',
+    };
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">' . $svg . '</svg>';
+};
+?>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?= e($siteName) ?> — Admin</title>
+    <link rel="stylesheet" href="<?= e(admin_url('__static/css/admin.css')) ?>">
+</head>
+<body>
+    <div class="app">
+        <aside class="app__sidebar">
+            <div class="brand">
+                <span class="brand__mark">N</span>
+                <div class="brand__lockup">
+                    <span class="brand__name">Nano CMS</span>
+                    <span class="brand__caption"><?= e($siteName) ?></span>
+                </div>
+            </div>
+
+            <nav class="nav">
+                <div class="nav__group">
+                    <a class="nav__link <?= $isExact(admin_url('')) || $isExact(rtrim(admin_url(''), '/')) ? 'nav__link--active' : '' ?>" href="<?= e(admin_url('')) ?>">
+                        <span class="nav__link__icon"><?= $icon('home') ?></span>
+                        <span class="nav__link__label">Painel</span>
+                    </a>
+                </div>
+
+                <?php
+                // Track which taxonomies are referenced by item types so we
+                // don't render them twice. Orphans (not referenced anywhere)
+                // get their own group below.
+                $assignedTaxonomies = [];
+                foreach ($itemTypes as $type => $def) {
+                    foreach ((array) ($def['taxonomies'] ?? []) as $tax) {
+                        $assignedTaxonomies[(string) $tax] = true;
+                    }
+                }
+                ?>
+
+                <?php if (!empty($itemTypes)): ?>
+                    <div class="nav__group">
+                        <div class="nav__group-title">Conteúdo</div>
+                        <?php foreach ($itemTypes as $type => $def): ?>
+                            <a class="nav__link <?= $isActive(admin_url('items/' . $type)) ? 'nav__link--active' : '' ?>" href="<?= e(admin_url('items/' . $type)) ?>">
+                                <span class="nav__link__icon"><?= $icon('file-text') ?></span>
+                                <span class="nav__link__label"><?= e((string)($def['label'] ?? $type)) ?></span>
+                                <?php if (($itemCounts[$type] ?? 0) > 0): ?>
+                                    <span class="nav__link-count"><?= e((string) $itemCounts[$type]) ?></span>
+                                <?php endif; ?>
+                            </a>
+
+                            <?php
+                            $childTaxonomies = (array) ($def['taxonomies'] ?? []);
+                            foreach ($childTaxonomies as $taxKey):
+                                $taxKey = (string) $taxKey;
+                                if (!isset($taxonomies[$taxKey])) continue;
+                                $taxDef = $taxonomies[$taxKey];
+                            ?>
+                                <a class="nav__link nav__link--child <?= $isActive(admin_url('taxonomies/' . $taxKey)) ? 'nav__link--active' : '' ?>" href="<?= e(admin_url('taxonomies/' . $taxKey)) ?>">
+                                    <span class="nav__link__label"><?= e((string)($taxDef['label'] ?? $taxKey)) ?></span>
+                                </a>
+                            <?php endforeach; ?>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+
+                <?php
+                $orphanTaxonomies = array_diff_key($taxonomies, $assignedTaxonomies);
+                ?>
+                <?php if (!empty($orphanTaxonomies)): ?>
+                    <div class="nav__group">
+                        <div class="nav__group-title">Taxonomias</div>
+                        <?php foreach ($orphanTaxonomies as $tax => $def): ?>
+                            <a class="nav__link <?= $isActive(admin_url('taxonomies/' . $tax)) ? 'nav__link--active' : '' ?>" href="<?= e(admin_url('taxonomies/' . $tax)) ?>">
+                                <span class="nav__link__icon"><?= $icon('tag') ?></span>
+                                <span class="nav__link__label"><?= e((string)($def['label'] ?? $tax)) ?></span>
+                            </a>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+
+                <?php if (!empty($formsList)): ?>
+                    <div class="nav__group">
+                        <div class="nav__group-title">Formulários</div>
+                        <a class="nav__link <?= ($currentPathOnly === admin_url('forms') || $currentPathOnly === admin_url('forms') . '/') ? 'nav__link--active' : '' ?>" href="<?= e(admin_url('forms')) ?>">
+                            <span class="nav__link__icon"><?= $icon('inbox') ?></span>
+                            <span class="nav__link__label">Todos</span>
+                            <span class="nav__link-count"><?= e((string) array_sum($formCounts)) ?></span>
+                        </a>
+                        <?php foreach ($formsList as $fid => $fdef): ?>
+                            <a class="nav__link nav__link--child <?= $isActive(admin_url('forms/' . $fid)) ? 'nav__link--active' : '' ?>" href="<?= e(admin_url('forms/' . $fid)) ?>">
+                                <span class="nav__link__label"><?= e((string)($fdef['label'] ?? $fid)) ?></span>
+                                <?php if (($formCounts[$fid] ?? 0) > 0): ?>
+                                    <span class="nav__link-count"><?= e((string) $formCounts[$fid]) ?></span>
+                                <?php endif; ?>
+                            </a>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+
+                <?php if (!empty($optionsList)): ?>
+                    <div class="nav__group">
+                        <div class="nav__group-title">Opções</div>
+                        <?php foreach ($optionsList as $optKey => $optDef): ?>
+                            <a class="nav__link <?= $isActive(admin_url('options/' . $optKey)) ? 'nav__link--active' : '' ?>" href="<?= e(admin_url('options/' . $optKey)) ?>">
+                                <span class="nav__link__icon"><?= $icon('sliders') ?></span>
+                                <span class="nav__link__label"><?= e((string)($optDef['label'] ?? $optKey)) ?></span>
+                            </a>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+
+                <div class="nav__group">
+                    <div class="nav__group-title">Estrutura</div>
+                    <?php if (!empty($pages)): ?>
+                        <a class="nav__link <?= $isActive(admin_url('pages')) ? 'nav__link--active' : '' ?>" href="<?= e(admin_url('pages')) ?>">
+                            <span class="nav__link__icon"><?= $icon('page') ?></span>
+                            <span class="nav__link__label">Páginas</span>
+                            <span class="nav__link-count"><?= e((string) count($pages)) ?></span>
+                        </a>
+                    <?php endif; ?>
+                    <a class="nav__link <?= $isActive(admin_url('media')) ? 'nav__link--active' : '' ?>" href="<?= e(admin_url('media')) ?>">
+                        <span class="nav__link__icon"><?= $icon('image') ?></span>
+                        <span class="nav__link__label">Mídia</span>
+                    </a>
+                </div>
+
+                <div class="nav__group">
+                    <div class="nav__group-title">Sistema</div>
+                    <a class="nav__link <?= $isActive(admin_url('users')) ? 'nav__link--active' : '' ?>" href="<?= e(admin_url('users')) ?>">
+                        <span class="nav__link__icon"><?= $icon('users') ?></span>
+                        <span class="nav__link__label">Usuários</span>
+                    </a>
+                </div>
+            </nav>
+
+            <?php if ($user !== null): ?>
+                <div class="app__sidebar-footer">
+                    <div class="user-card">
+                        <span class="user-card__avatar"><?= e($initial) ?></span>
+                        <div class="user-card__info">
+                            <span class="user-card__name"><?= e($user->name) ?></span>
+                            <form class="user-card__form" method="post" action="<?= e(admin_url('logout')) ?>">
+                                <?= csrf_field() ?>
+                                <button class="user-card__signout" type="submit">Sair</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            <?php endif; ?>
+        </aside>
+
+        <main class="app__main">
+            <?php if (!empty($flash_success)): ?>
+                <div class="flash flash--success"><?= e($flash_success) ?></div>
+            <?php endif; ?>
+            <?php if (!empty($flash_error)): ?>
+                <div class="flash flash--error"><?= e($flash_error) ?></div>
+            <?php endif; ?>
+            <?= $_content ?>
+        </main>
+    </div>
+    <script type="module" src="<?= e(admin_url('__static/js/admin.js')) ?>"></script>
+</body>
+</html>

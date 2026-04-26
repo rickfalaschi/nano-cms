@@ -1,0 +1,23 @@
+/vendor/
+/storage/uploads/*
+!/storage/uploads/.gitkeep
+/storage/cache/*
+!/storage/cache/.gitkeep
+/storage/logs/*
+!/storage/logs/.gitkeep
+
+# Theme — project-specific, not part of Nano core.
+# `examples/theme/` is the committed starter that gets scaffolded into
+# `theme/` on install. Each project then evolves its own theme.
+/theme/
+
+# Environment — local secrets, never commit
+.env
+.env.local
+/config/env.local.php
+
+.DS_Store
+.idea/
+.vscode/
+*.log
+composer.lock

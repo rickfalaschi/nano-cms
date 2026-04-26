@@ -1,0 +1,60 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Nano\Admin\Controllers;
+
+use Nano\FieldRenderer;
+use Nano\Models\Page;
+use Nano\Request;
+use Nano\Response;
+
+final class PageController extends Controller
+{
+    public function index(Request $request): Response
+    {
+        $auth = $this->requireAuth($request);
+        if ($auth !== null) return $auth;
+
+        return $this->render('pages/index', [
+            'pages' => $this->app->config->pages(),
+        ]);
+    }
+
+    public function edit(Request $request, array $params): Response
+    {
+        $auth = $this->requireAuth($request);
+        if ($auth !== null) return $auth;
+
+        $key = (string) ($params['key'] ?? '');
+        $config = $this->app->config->page($key);
+        if ($config === null) {
+            return Response::notFound("Page '{$key}' not found in site.json");
+        }
+
+        $page = Page::findByKey($key);
+        if ($page === null) {
+            $page = Page::upsert($key, (string) ($config['label'] ?? $key), []);
+        }
+
+        $fieldDefs = $this->app->config->resolveFields($config['fields'] ?? []);
+
+        if ($request->isPost()) {
+            $csrf = $this->verifyCsrfOrFail($request);
+            if ($csrf !== null) return $csrf;
+
+            $values = FieldRenderer::collect($fieldDefs, $request->post['fields'] ?? []);
+            Page::upsert($key, (string) ($config['label'] ?? $key), $values);
+
+            $this->app->session->flash('success', 'Página atualizada.');
+            return Response::redirect(admin_url('pages/' . $key));
+        }
+
+        return $this->render('pages/edit', [
+            'pageKey' => $key,
+            'pageConfig' => $config,
+            'page' => $page,
+            'fieldDefs' => $fieldDefs,
+        ]);
+    }
+}

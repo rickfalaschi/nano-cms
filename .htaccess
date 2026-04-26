@@ -1,0 +1,54 @@
+# Nano CMS — root .htaccess
+#
+# WHY THIS FILE EXISTS
+# --------------------
+# The "right" way to deploy Nano is to point your document root at the
+# `public/` directory. Most VPS, Plesk, and modern shared hosts let you do
+# this via cPanel/DirectAdmin "Document Root" settings or an Apache vhost.
+#
+# But many cheap shared hosts (HostGator, Locaweb, KingHost, etc.) lock the
+# document root to `public_html/`. If you upload Nano's whole project there,
+# this file does two things:
+#
+#   1. Blocks direct web access to the engine (`core/`), config (`config/`),
+#      migrations (`migrations/`), storage (`storage/`), CLI (`bin/`), and
+#      theme PHP files. They're invisible from the outside.
+#   2. Rewrites every request into `public/` so the front controller and
+#      pretty URLs keep working without the user having to type `/public/`.
+#
+# When you DO have a configurable document root, you can delete this file —
+# pointing the root straight at `public/` is cleaner.
+
+Options -Indexes -MultiViews
+ServerSignature Off
+
+# Block direct access to internal directories
+RewriteEngine On
+
+# These prefixes are never web-served. Returning 403 instead of letting them
+# fall through avoids accidental info disclosure if the rewrite below ever
+# regresses.
+RewriteRule ^(core|config|migrations|storage|bin|vendor|node_modules)(/|$) - [F,L]
+
+# Block PHP files in theme/. Templates are loaded by the engine via include —
+# they should never be requested directly.
+RewriteRule ^theme/.*\.php$ - [F,L]
+
+# Don't double-rewrite once we've already moved into public/
+RewriteCond %{REQUEST_URI} ^/public/ [OR]
+RewriteCond %{REQUEST_URI} ^/\.well-known/
+RewriteRule ^ - [L]
+
+# Forward everything else into public/ — the front controller takes over there.
+RewriteRule ^(.*)$ public/$1 [L]
+
+# Deny dotfiles and config-like extensions at the root level too
+<FilesMatch "(^\.|\.(env|json|lock|md|log|ini|sql|bak|swp|orig|yaml|yml|toml|sh)$)">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>

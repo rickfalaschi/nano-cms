@@ -1,0 +1,67 @@
+# Nano CMS — public/.htaccess
+# This is the front controller for Apache. The PHP built-in dev server
+# (`./bin/nano serve`) does NOT read this file — it routes through index.php
+# directly. In production on Apache/LiteSpeed, this file is what makes the
+# router work.
+
+Options -Indexes -MultiViews
+ServerSignature Off
+AddDefaultCharset UTF-8
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Uncomment if Nano lives in a subdirectory of the domain (e.g., /blog/...)
+    # RewriteBase /
+
+    # Pass through real files and directories (CSS, JS, images placed in public/)
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # Everything else → front controller. Path is read by the router from
+    # $_SERVER['REQUEST_URI'].
+    RewriteRule ^ index.php [L]
+</IfModule>
+
+# Some shared hosts run PHP-CGI/FPM and strip Authorization headers.
+<IfModule mod_setenvif.c>
+    SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
+</IfModule>
+
+# Defense in depth: even inside public/, deny access to dotfiles and config-like
+# extensions. This shouldn't normally match anything (these files belong outside
+# public/), but it's a safety net if someone copies one in.
+<FilesMatch "(^\.|\.(env|json|lock|md|log|ini|sql|bak|swp|orig|yaml|yml|toml)$)">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Long-lived caching for static assets. Filenames should change when the
+# content changes (cache-busting) — otherwise drop the immutable directive.
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+    ExpiresByType image/jpeg "access plus 1 month"
+    ExpiresByType image/png "access plus 1 month"
+    ExpiresByType image/webp "access plus 1 month"
+    ExpiresByType image/avif "access plus 1 month"
+    ExpiresByType image/svg+xml "access plus 1 month"
+    ExpiresByType font/woff2 "access plus 1 year"
+    ExpiresByType font/woff "access plus 1 year"
+</IfModule>
+
+# Reasonable security headers. HSTS is intentionally OFF here — only enable
+# it once you're sure HTTPS is permanent on this domain.
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+    # Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+</IfModule>
