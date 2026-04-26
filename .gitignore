@@ -7,11 +7,9 @@
 !/storage/logs/.gitkeep
 
 # Theme — project-specific, not part of Nano core.
-# Each project drops its own theme into `theme/`. We keep the directory
-# committed (via .gitkeep) so the layout is obvious to anyone cloning,
-# but no theme contents are tracked.
-/theme/*
-!/theme/.gitkeep
+# Each project clones its own theme repo into `theme/`:
+#   git clone https://github.com/your-org/your-theme.git theme
+/theme/
 
 # Environment — local secrets, never commit
 .env
