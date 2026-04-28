@@ -70,9 +70,12 @@ bin/nano                   CLI tool
 {
   "site": {
     "name": "...",
-    "url": "...",
     "language": "pt-BR"
   },
+  // Note: the canonical site URL is NOT declared here. The theme is
+  // project-neutral; deployment URL goes in `.env` as `APP_URL` and is
+  // read by Sitemap, absolute_url(), and any other code that needs the
+  // canonical origin.
 
   "field_groups": {
     "seo": {

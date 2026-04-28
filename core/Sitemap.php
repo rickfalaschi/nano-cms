@@ -19,12 +19,10 @@ use Nano\Models\Term;
  *   - For every taxonomy referenced by a paged item type, every term page
  *     (e.g. /categoria/term-slug)
  *
- * URLs are emitted as canonical absolute URLs using the configured
- * `site.url` when available, falling back to the request scheme/host so
- * sitemaps still work in local dev. The install base path is preserved
- * only when there's no canonical `site.url` (i.e. when site.url is empty
- * we assume the install is served at its base path; when it's set we
- * trust it as the canonical origin).
+ * URLs are emitted as canonical absolute URLs using `APP_URL` from `.env`
+ * when set, falling back to the request scheme/host so sitemaps still work
+ * in local dev. The canonical origin is intentionally NOT read from the
+ * theme — the theme is project-neutral; deployment URL belongs to `.env`.
  */
 final class Sitemap
 {
@@ -96,14 +94,17 @@ final class Sitemap
     }
 
     /**
-     * Canonical base URL with no trailing slash. Prefers `site.url` from
-     * site.json (production canonical). Falls back to request scheme/host
-     * + install base path so dev installs at /nano still produce valid
+     * Canonical base URL with no trailing slash. Read from `APP_URL` in `.env`
+     * (the deployment-specific origin). Falls back to request scheme/host +
+     * install base path so dev installs at /nano still produce valid
      * (if non-canonical) sitemaps.
+     *
+     * The theme intentionally does NOT declare a URL — themes are reusable
+     * across projects, and the canonical origin is a deployment concern.
      */
     private static function resolveBaseUrl(Config $config): string
     {
-        $configured = trim((string) ($config->site('site.url') ?? ''));
+        $configured = trim((string) ($config->get('app.url') ?? ''));
         if ($configured !== '') {
             return rtrim($configured, '/');
         }
