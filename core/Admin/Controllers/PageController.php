@@ -38,12 +38,17 @@ final class PageController extends Controller
         }
 
         $fieldDefs = $this->app->config->resolveFields($config['fields'] ?? []);
+        // Pages always have URLs, so SEO is built-in for every page.
+        $seoFields = $this->app->config->seoFields();
 
         if ($request->isPost()) {
             $csrf = $this->verifyCsrfOrFail($request);
             if ($csrf !== null) return $csrf;
 
-            $values = FieldRenderer::collect($fieldDefs, $request->post['fields'] ?? []);
+            // Merge defs so FieldRenderer collects values for both content
+            // and SEO into the same `fields` JSON blob.
+            $allDefs = array_merge($fieldDefs, $seoFields);
+            $values = FieldRenderer::collect($allDefs, $request->post['fields'] ?? []);
             Page::upsert($key, (string) ($config['label'] ?? $key), $values);
 
             $this->app->session->flash('success', 'Página atualizada.');
@@ -55,6 +60,7 @@ final class PageController extends Controller
             'pageConfig' => $config,
             'page' => $page,
             'fieldDefs' => $fieldDefs,
+            'seoFields' => $seoFields,
         ]);
     }
 }

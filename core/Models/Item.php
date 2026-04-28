@@ -113,13 +113,24 @@ final class Item
         return array_map(fn($r) => self::fromRow($r), $rows);
     }
 
-    public static function listAdmin(string $type, ?string $status = null): array
+    /**
+     * Admin listing with optional status filter and free-text search.
+     * Search matches title or slug (case-insensitive).
+     */
+    public static function listAdmin(string $type, ?string $status = null, ?string $search = null): array
     {
         $params = [$type];
         $where = ['type = ?'];
-        if ($status !== null && $status !== 'all') {
+        if ($status !== null && $status !== '' && $status !== 'all') {
             $where[] = 'status = ?';
             $params[] = $status;
+        }
+        $search = $search !== null ? trim($search) : '';
+        if ($search !== '') {
+            $where[] = '(title LIKE ? OR slug LIKE ?)';
+            $needle = '%' . $search . '%';
+            $params[] = $needle;
+            $params[] = $needle;
         }
         $rows = App::instance()->db->fetchAll(
             'SELECT * FROM items WHERE ' . implode(' AND ', $where) . ' ORDER BY created_at DESC',
@@ -137,6 +148,12 @@ final class Item
     {
         $config = App::instance()->config;
         $type = $config->itemType($this->type);
+        // Embed-only types (has_page: false) have no public URL — return
+        // empty so templates that accidentally call url() don't render
+        // broken `<a href="">` chains. Callers should check before linking.
+        if (($type['has_page'] ?? true) === false) {
+            return '';
+        }
         $slug = (string) ($type['slug'] ?? $this->type);
         return App::instance()->basePath . '/' . trim($slug, '/') . '/' . $this->slug;
     }

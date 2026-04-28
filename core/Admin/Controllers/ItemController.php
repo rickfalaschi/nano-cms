@@ -23,11 +23,27 @@ final class ItemController extends Controller
             return Response::notFound("Item type '{$type}' not found.");
         }
 
-        $items = Item::listAdmin($type);
+        // Admin filters — read from query string so URLs are shareable
+        // and persist across edit/delete redirects (when we add that).
+        $search = trim((string) ($request->query['q'] ?? ''));
+        $statusFilter = (string) ($request->query['status'] ?? '');
+        $allowedStatuses = ['', 'published', 'draft'];
+        if (!in_array($statusFilter, $allowedStatuses, true)) {
+            $statusFilter = '';
+        }
+
+        $items = Item::listAdmin(
+            $type,
+            $statusFilter !== '' ? $statusFilter : null,
+            $search !== '' ? $search : null
+        );
+
         return $this->render('items/index', [
             'type' => $type,
             'typeConfig' => $config,
             'items' => $items,
+            'search' => $search,
+            'statusFilter' => $statusFilter,
         ]);
     }
 
@@ -64,6 +80,10 @@ final class ItemController extends Controller
         $fieldDefs = $this->app->config->resolveFields($config['fields'] ?? []);
         $taxonomies = (array) ($config['taxonomies'] ?? []);
         $customTemplates = (array) ($config['templates'] ?? []);
+        // SEO is built-in only for item types that have a public page.
+        // Embed-only types (has_page: false) don't need meta tags.
+        $hasPage = ($config['has_page'] ?? true) !== false;
+        $seoFields = $hasPage ? $this->app->config->seoFields() : [];
 
         if ($request->isPost()) {
             $csrf = $this->verifyCsrfOrFail($request);
@@ -83,7 +103,9 @@ final class ItemController extends Controller
             }
             $slug = slugify($slug);
 
-            $values = FieldRenderer::collect($fieldDefs, $request->post['fields'] ?? []);
+            // Merge SEO defs so its values are persisted alongside content.
+            $allDefs = array_merge($fieldDefs, $seoFields);
+            $values = FieldRenderer::collect($allDefs, $request->post['fields'] ?? []);
 
             $publishedAt = $item?->publishedAt;
             if ($status === 'published' && $publishedAt === null) {
@@ -134,6 +156,7 @@ final class ItemController extends Controller
             'typeConfig' => $config,
             'item' => $item,
             'fieldDefs' => $fieldDefs,
+            'seoFields' => $seoFields,
             'taxonomies' => $taxonomies,
             'termOptions' => $termOptions,
             'itemTerms' => $itemTerms,

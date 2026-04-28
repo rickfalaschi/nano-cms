@@ -198,6 +198,18 @@ const initConfirms = () => {
   });
 };
 
+// Auto-submit a select's parent <form> on change. Used for the table
+// toolbar filters (status, etc.) so changing a dropdown reloads the list
+// without a separate "Apply" button.
+const initAutosubmit = () => {
+  document.querySelectorAll('[data-autosubmit]').forEach((el) => {
+    el.addEventListener('change', () => {
+      const form = el.closest('form');
+      if (form) form.submit();
+    });
+  });
+};
+
 // ── Modal helper ────────────────────────────────────────────────────────────
 const openModal = ({ title = '', src = '' } = {}) => {
   const modal = document.createElement('div');
@@ -503,3 +515,4 @@ document.querySelectorAll('[data-media-uploader]').forEach(initMediaUploader);
 document.querySelectorAll('[data-media-grid] .media-grid__item').forEach(bindGridItem);
 initSlugify();
 initConfirms();
+initAutosubmit();

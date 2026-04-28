@@ -120,6 +120,38 @@ final class Config
         return $this->site['field_groups'][$group] ?? null;
     }
 
+    /**
+     * Built-in SEO field set. Automatically attached to pages and to item
+     * types with `has_page: true`. Stored in the same `fields` JSON as
+     * regular content fields, but rendered as a separate block in the
+     * admin so editors find them in a predictable place.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function seoFields(): array
+    {
+        return [
+            [
+                'name'  => 'meta_title',
+                'type'  => 'text',
+                'label' => 'Meta título',
+                'help'  => 'Aparece na aba do navegador e nos resultados de busca. Se vazio, usa o título do conteúdo.',
+            ],
+            [
+                'name'  => 'meta_description',
+                'type'  => 'textarea',
+                'label' => 'Meta descrição',
+                'help'  => 'Resumo curto (até ~160 caracteres) usado em buscas e em previews ao compartilhar.',
+            ],
+            [
+                'name'  => 'og_image',
+                'type'  => 'image',
+                'label' => 'Imagem de compartilhamento',
+                'help'  => 'Mostrada quando o link é compartilhado em redes sociais e WhatsApp. Recomendado: 1200×630.',
+            ],
+        ];
+    }
+
     public function rootPath(): string
     {
         return $this->rootPath;

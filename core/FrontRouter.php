@@ -69,6 +69,14 @@ final class FrontRouter
         }
 
         foreach ($config->itemTypes() as $type => $def) {
+            // Item types with `has_page: false` are not publicly routable —
+            // they're embed-only content (e.g. services rendered inside
+            // /servicos). Skip them so URLs like /servico/foo cleanly 404
+            // instead of falling back to a generic template.
+            if (($def['has_page'] ?? true) === false) {
+                continue;
+            }
+
             $base = trim((string) ($def['slug'] ?? $type), '/');
             if ($segments[0] !== $base) {
                 continue;

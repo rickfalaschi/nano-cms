@@ -31,6 +31,22 @@
         ?>
     <?php endforeach; ?>
 
+    <?php if (!empty($seoFields)): ?>
+        <div class="form-seo">
+            <div class="form-seo__head">
+                <h2 class="form-seo__title">SEO &amp; compartilhamento</h2>
+                <p class="form-seo__sub">Como esta página aparece em buscas, na aba do navegador e em previews compartilhados.</p>
+            </div>
+            <?php foreach ($seoFields as $field): ?>
+                <?php
+                $name = (string) ($field['name'] ?? '');
+                $value = $page->field($name);
+                echo \Nano\FieldRenderer::render($field, $value, 'fields');
+                ?>
+            <?php endforeach; ?>
+        </div>
+    <?php endif; ?>
+
     <div class="form-actions">
         <button class="button" type="submit">Salvar</button>
         <span class="muted">Última atualização: <?= e($page->updatedAt ?? '—') ?></span>
