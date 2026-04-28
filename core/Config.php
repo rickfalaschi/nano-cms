@@ -121,6 +121,81 @@ final class Config
     }
 
     /**
+     * Built-in option groups that every Nano installation gets automatically,
+     * without needing to declare them in `site.json`. Currently:
+     *
+     *   - tracking · GTM/Pixel/GA snippets injected into every page in the
+     *     three standard placements (head, body start, body end).
+     *
+     * Built-in groups are merged with theme-defined options in `resolvedOptions()`
+     * and behave identically in the admin (same Option model, same edit view).
+     *
+     * @return array<string, array<string,mixed>>
+     */
+    public function builtinOptions(): array
+    {
+        return [
+            'tracking' => [
+                'label' => 'Scripts & rastreamento',
+                'description' => 'Códigos de rastreamento (GTM, Meta Pixel, Google Analytics, chat) injetados em todas as páginas do site. Cole o snippet exato fornecido pela ferramenta — o conteúdo é renderizado como HTML bruto.',
+                'fields' => [
+                    [
+                        'name' => 'head',
+                        'type' => 'textarea',
+                        'label' => 'Scripts no <head>',
+                        'rows' => 10,
+                        'help' => 'Para a maioria dos rastreadores (GTM, Google Analytics, Meta Pixel, Hotjar). Carrega o mais cedo possível.',
+                    ],
+                    [
+                        'name' => 'body_start',
+                        'type' => 'textarea',
+                        'label' => 'Scripts no início do <body>',
+                        'rows' => 6,
+                        'help' => 'Para o <noscript> do GTM e widgets que precisam estar logo após a abertura do body.',
+                    ],
+                    [
+                        'name' => 'body_end',
+                        'type' => 'textarea',
+                        'label' => 'Scripts no final do <body>',
+                        'rows' => 8,
+                        'help' => 'Para scripts que não devem bloquear a renderização (chat, analytics complementares, fim de funil).',
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * All option groups visible in the admin: theme-defined first, then
+     * built-in groups appended (so themes can shadow a built-in by declaring
+     * the same key in site.json — niche but supported).
+     *
+     * @return array<string, array<string,mixed>>
+     */
+    public function resolvedOptions(): array
+    {
+        $themeOptions = (array) ($this->site['options'] ?? []);
+        $builtin = $this->builtinOptions();
+        // Theme keys win on collision — `array_merge` of $builtin + $theme would
+        // also work but $themeOptions + $builtin makes the precedence explicit.
+        return array_merge($builtin, $themeOptions);
+    }
+
+    /**
+     * Look up a single option group by key, checking theme definitions first
+     * then falling back to built-ins.
+     */
+    public function optionGroup(string $key): ?array
+    {
+        $themeOptions = (array) ($this->site['options'] ?? []);
+        if (isset($themeOptions[$key])) {
+            return (array) $themeOptions[$key];
+        }
+        $builtin = $this->builtinOptions();
+        return $builtin[$key] ?? null;
+    }
+
+    /**
      * Built-in SEO field set. Automatically attached to pages and to item
      * types with `has_page: true`. Stored in the same `fields` JSON as
      * regular content fields, but rendered as a separate block in the

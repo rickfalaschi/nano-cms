@@ -144,6 +144,11 @@ final class Installer
         //    user (or skill) installs into `theme/` independently.
         self::ensureStorage($app);
 
+        // 0b. Per-project files — copy `.example` templates into place if
+        //     the live versions don't exist yet. Existing files are preserved
+        //     (this method never overwrites), so admins can customize freely.
+        $report['project_files_copied'] = self::ensureProjectFiles($app);
+
         // 1. Migrations
         $migrator = new Migrator($app->db, $app->config->path('migrations'));
         $report['migrations'] = $migrator->migrate();
@@ -185,6 +190,61 @@ final class Installer
         $report['user_created'] = $user->email;
 
         return $report;
+    }
+
+    /**
+     * Per-project files map: `<example>` → `<live>`. The `.example` files
+     * are versioned with Nano core; the live versions are gitignored so each
+     * project can customize them (custom redirects in `.htaccess`, additional
+     * `Disallow` rules in `robots.txt`, etc.) without future Nano updates
+     * overwriting their changes.
+     *
+     * Pattern follows the same logic as `theme/` and `.env`: ship a starting
+     * point, copy on install, leave alone afterwards.
+     */
+    public const PROJECT_FILE_TEMPLATES = [
+        '.htaccess.example'              => '.htaccess',
+        'public/.htaccess.example'       => 'public/.htaccess',
+        'public/robots.txt.example'      => 'public/robots.txt',
+    ];
+
+    /**
+     * Copy any `.example` template into its live counterpart when the live
+     * file doesn't exist yet. Returns the list of files actually created,
+     * for the install report.
+     *
+     * Idempotent and non-destructive: if `.htaccess` already exists with
+     * project-specific rules, this method leaves it untouched. To force a
+     * refresh from the latest example, the user must delete the live file
+     * first (or copy by hand).
+     *
+     * @return list<string> Live paths that were created.
+     */
+    public static function ensureProjectFiles(App $app): array
+    {
+        $rootPath = $app->config->rootPath();
+        $created = [];
+
+        foreach (self::PROJECT_FILE_TEMPLATES as $example => $live) {
+            $src = $rootPath . '/' . $example;
+            $dst = $rootPath . '/' . $live;
+
+            // Skip when live exists — admin's customizations win.
+            if (file_exists($dst)) continue;
+            if (!is_file($src)) continue;
+
+            // Make sure parent dir exists (it always should, since these
+            // live in `public/` or root, but defensive code is cheap).
+            $dir = dirname($dst);
+            if (!is_dir($dir)) @mkdir($dir, 0775, true);
+
+            if (@copy($src, $dst)) {
+                @chmod($dst, 0644);
+                $created[] = $live;
+            }
+        }
+
+        return $created;
     }
 
     /**

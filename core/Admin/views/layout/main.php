@@ -37,7 +37,11 @@ foreach ($formsList as $fid => $fdef) {
     );
 }
 
+// Theme-defined option groups go in the "Opções" sidebar block. Built-in
+// groups (e.g. Scripts & rastreamento) belong to "Configurações" alongside
+// Usuários — they're cross-site infrastructure, not editorial content.
 $optionsList = (array) ($config->site('options') ?? []);
+$builtinOptionsList = $config->builtinOptions();
 
 $icon = function (string $name): string {
     $svg = match ($name) {
@@ -183,7 +187,13 @@ $icon = function (string $name): string {
                 </div>
 
                 <div class="nav__group">
-                    <div class="nav__group-title">Sistema</div>
+                    <div class="nav__group-title">Configurações</div>
+                    <?php foreach ($builtinOptionsList as $optKey => $optDef): ?>
+                        <a class="nav__link <?= $isActive(admin_url('options/' . $optKey)) ? 'nav__link--active' : '' ?>" href="<?= e(admin_url('options/' . $optKey)) ?>">
+                            <span class="nav__link__icon"><?= $icon('sliders') ?></span>
+                            <span class="nav__link__label"><?= e((string)($optDef['label'] ?? $optKey)) ?></span>
+                        </a>
+                    <?php endforeach; ?>
                     <a class="nav__link <?= $isActive(admin_url('users')) ? 'nav__link--active' : '' ?>" href="<?= e(admin_url('users')) ?>">
                         <span class="nav__link__icon"><?= $icon('users') ?></span>
                         <span class="nav__link__label">Usuários</span>

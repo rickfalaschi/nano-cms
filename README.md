@@ -10,17 +10,27 @@ no plugins, no Composer required.
 # 2. Create the database
 mysql -u root -p -e "CREATE DATABASE nano CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
 
-# 3. Run migrations
-./bin/nano migrate
+# 3. Full install (DB schema + per-project files + initial user)
+./bin/nano install --email=you@example.com --password='your-password' --name='Your Name'
 
-# 4. Create an admin user
-./bin/nano user:create you@example.com 'your-password' 'Your Name'
-
-# 5. Sync pages defined in theme/site.json
-./bin/nano page:sync
-
-# 6. Serve
+# 4. Serve
 ./bin/nano serve 8080
+```
+
+`install` copies `.htaccess.example`, `public/.htaccess.example`, and
+`public/robots.txt.example` into their live counterparts. These live files
+are **gitignored** — edit them freely (custom redirects, security headers,
+crawler rules) and future Nano updates won't overwrite your changes.
+
+To pick up new templates added in later updates, run `./bin/nano files:init`.
+
+### Step-by-step (alternative to `install`)
+
+```bash
+./bin/nano migrate                         # schema
+./bin/nano files:init                      # copy .example → live
+./bin/nano user:create you@... pwd Name    # admin user
+./bin/nano page:sync                       # seed page records
 ```
 
 Visit:

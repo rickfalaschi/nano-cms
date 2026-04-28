@@ -125,6 +125,14 @@ final class FrontRouter
             return null;
         }
 
+        // Drafts are private. Anyone visiting the public URL of a draft gets
+        // a 404 — same as if it didn't exist — UNLESS they're authenticated
+        // in the admin, in which case the draft renders normally so editors
+        // can preview their work before publishing.
+        if ($item->status !== 'published' && !App::instance()->auth->check()) {
+            return null;
+        }
+
         $template = (string) ($def['template'] ?? "single-{$type}.php");
         if (!empty($item->template) && is_array($def['templates'] ?? null)) {
             foreach ($def['templates'] as $custom) {

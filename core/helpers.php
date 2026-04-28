@@ -205,6 +205,40 @@ if (!function_exists('utm_params')) {
     }
 }
 
+/*
+ * Tracking script injection — for GTM, Meta Pixel, GA, chat widgets, etc.
+ *
+ * Themes call these three helpers at the standard placement points:
+ *   - tracking_head()        → just before </head>
+ *   - tracking_body_start()  → just after <body ...>
+ *   - tracking_body_end()    → just before </body>
+ *
+ * Content comes from the "Scripts & rastreamento" options page in the admin
+ * (a built-in group). Output is intentionally raw — admins paste the exact
+ * snippet provided by GTM/Pixel/etc. Empty options produce no output.
+ */
+if (!function_exists('tracking_head')) {
+    function tracking_head(): void
+    {
+        $value = (string) (option('tracking.head') ?? '');
+        if ($value !== '') echo "\n" . $value . "\n";
+    }
+}
+if (!function_exists('tracking_body_start')) {
+    function tracking_body_start(): void
+    {
+        $value = (string) (option('tracking.body_start') ?? '');
+        if ($value !== '') echo "\n" . $value . "\n";
+    }
+}
+if (!function_exists('tracking_body_end')) {
+    function tracking_body_end(): void
+    {
+        $value = (string) (option('tracking.body_end') ?? '');
+        if ($value !== '') echo "\n" . $value . "\n";
+    }
+}
+
 if (!function_exists('redirect')) {
     function redirect(string $url, int $status = 302): Response
     {

@@ -17,9 +17,11 @@ final class OptionController extends Controller
         if ($auth !== null) return $auth;
 
         $key = (string) ($params['key'] ?? '');
-        $pageDef = $this->app->config->site('options.' . $key);
-        if (!is_array($pageDef)) {
-            return Response::notFound("Options page '{$key}' não definida em theme/site.json.");
+        // Look up theme-defined options first, fall back to built-ins
+        // (e.g. the global tracking/scripts page that ships with core).
+        $pageDef = $this->app->config->optionGroup($key);
+        if ($pageDef === null) {
+            return Response::notFound("Options page '{$key}' não definida.");
         }
 
         $fieldDefs = $this->app->config->resolveFields((array) ($pageDef['fields'] ?? []));

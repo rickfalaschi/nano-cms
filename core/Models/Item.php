@@ -63,16 +63,52 @@ final class Item
     }
 
     /**
+     * Whitelist of columns that may appear in `order` clauses passed to
+     * query(). Anything else is silently dropped — keeps SQL safe even if
+     * `order` ever ends up populated from user input (today it's only set
+     * by theme code, but we don't want a footgun).
+     */
+    private const SORTABLE_COLUMNS = [
+        'id', 'slug', 'title', 'status',
+        'published_at', 'created_at', 'updated_at',
+    ];
+
+    /**
+     * Parse a free-form ORDER BY string ("col1 ASC, col2 DESC") into a safe
+     * SQL fragment using the column whitelist. Returns the default when the
+     * input is empty or every clause fails validation.
+     */
+    private static function sanitizeOrder(string $order, string $default): string
+    {
+        $clauses = array_filter(array_map('trim', explode(',', $order)));
+        $safe = [];
+        foreach ($clauses as $clause) {
+            $parts = preg_split('/\s+/', $clause) ?: [];
+            $col = strtolower((string) ($parts[0] ?? ''));
+            $dir = strtoupper((string) ($parts[1] ?? 'ASC'));
+            if (!in_array($col, self::SORTABLE_COLUMNS, true)) continue;
+            if ($dir !== 'ASC' && $dir !== 'DESC') $dir = 'ASC';
+            $safe[] = "{$col} {$dir}";
+        }
+        return $safe === [] ? $default : implode(', ', $safe);
+    }
+
+    /**
      * @param array{limit?:int, offset?:int, status?:string, term?:int, order?:string} $args
      * @return list<self>
      */
     public static function query(string $type, array $args = []): array
     {
         $db = App::instance()->db;
-        $limit = (int) ($args['limit'] ?? 100);
-        $offset = (int) ($args['offset'] ?? 0);
+        // Cap limit/offset to sensible bounds — defends against accidental
+        // huge queries and cleanly casts non-numeric input to 0/100.
+        $limit = max(0, min(1000, (int) ($args['limit'] ?? 100)));
+        $offset = max(0, (int) ($args['offset'] ?? 0));
         $status = (string) ($args['status'] ?? 'published');
-        $order = (string) ($args['order'] ?? 'published_at DESC, created_at DESC');
+        $order = self::sanitizeOrder(
+            (string) ($args['order'] ?? ''),
+            'published_at DESC, created_at DESC'
+        );
 
         $params = [$type];
         $where = ['type = ?'];
@@ -87,6 +123,9 @@ final class Item
             $params[] = (int) $args['term'];
         }
 
+        // $order, $limit, $offset are now sanitized — safe to interpolate.
+        // (MySQL prepared statements don't bind LIMIT/OFFSET on every driver
+        // setup, so we cast and inline rather than parameterize them.)
         $sql = sprintf(
             'SELECT * FROM items WHERE %s ORDER BY %s LIMIT %d OFFSET %d',
             implode(' AND ', $where),

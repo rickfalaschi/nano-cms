@@ -63,6 +63,7 @@ $commands = [
         echo "  migrate:status                       Show pending migrations\n";
         echo "  user:create <email> <pwd> <name>     Create a new admin user\n";
         echo "  page:sync                            Create page records from site.json\n";
+        echo "  files:init                           Copy .htaccess.example, robots.txt.example into place\n";
         echo "  schema:validate                      Validate site.json structure\n";
         echo "  serve [port]                         Start built-in PHP server\n";
         echo "\n";
@@ -111,6 +112,14 @@ $commands = [
         echo "2. Migrations: " . ($migCount === 0 ? 'up to date' : "{$migCount} applied") . "\n";
         foreach ($report['migrations'] as $m) {
             echo "   + {$m}\n";
+        }
+
+        $copied = $report['project_files_copied'] ?? [];
+        if ($copied !== []) {
+            echo "   Project files initialized:\n";
+            foreach ($copied as $f) {
+                echo "   + {$f}\n";
+            }
         }
 
         echo "3. Pages: " . ($report['pages_synced'] === 0 ? 'already synced' : "{$report['pages_synced']} added") . "\n";
@@ -176,6 +185,23 @@ $commands = [
         }
         $user = Nano\Models\User::create($email, $password, $name);
         echo "Created user #{$user->id}: {$user->email}\n";
+    },
+
+    'files:init' => function () use ($rootPath) {
+        // Copy `.example` templates into their live counterparts. Useful when
+        // a Nano update ships a new example file (e.g. robots.txt added later)
+        // and existing installs need to pick it up. Existing live files are
+        // preserved — this command never overwrites.
+        $app = Nano\Bootstrap::boot($rootPath);
+        $created = Nano\Installer::ensureProjectFiles($app);
+        if ($created === []) {
+            echo "All project files already in place — nothing to copy.\n";
+            return;
+        }
+        echo "Copied:\n";
+        foreach ($created as $f) {
+            echo "  + {$f}\n";
+        }
     },
 
     'page:sync' => function () use ($rootPath) {
