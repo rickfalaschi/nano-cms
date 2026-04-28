@@ -23,6 +23,11 @@ final class FrontRouter
             return Response::notFound();
         }
 
+        // UTM attribution: persist any utm_* query params to the session
+        // so the next form submission can be attributed to the campaign
+        // that brought the visitor in. No-op when no utm_* are present.
+        Utm::captureFromRequest($request, App::instance()->session);
+
         $path = '/' . trim($request->path, '/');
         if ($path === '/') {
             $path = '';

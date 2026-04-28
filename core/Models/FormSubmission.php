@@ -17,6 +17,12 @@ final class FormSubmission
     public ?string $emailStatus = null;   // 'sent' | 'failed' | null
     public ?string $emailError = null;
     public ?string $sentTo = null;
+    // UTM attribution captured from session at submission time.
+    public ?string $utmSource = null;
+    public ?string $utmMedium = null;
+    public ?string $utmCampaign = null;
+    public ?string $utmContent = null;
+    public ?string $utmTerm = null;
     public string $createdAt;
 
     public static function fromRow(array $row): self
@@ -31,6 +37,11 @@ final class FormSubmission
         $s->emailStatus = $row['email_status'] ?? null;
         $s->emailError = $row['email_error'] ?? null;
         $s->sentTo = $row['sent_to'] ?? null;
+        $s->utmSource = $row['utm_source'] ?? null;
+        $s->utmMedium = $row['utm_medium'] ?? null;
+        $s->utmCampaign = $row['utm_campaign'] ?? null;
+        $s->utmContent = $row['utm_content'] ?? null;
+        $s->utmTerm = $row['utm_term'] ?? null;
         $s->createdAt = (string) $row['created_at'];
         return $s;
     }
@@ -52,6 +63,11 @@ final class FormSubmission
             'email_status' => $payload['email_status'] ?? null,
             'email_error'  => $payload['email_error'] ?? null,
             'sent_to'      => $payload['sent_to'] ?? null,
+            'utm_source'   => isset($payload['utm_source'])   ? mb_substr((string) $payload['utm_source'],   0, 255) : null,
+            'utm_medium'   => isset($payload['utm_medium'])   ? mb_substr((string) $payload['utm_medium'],   0, 255) : null,
+            'utm_campaign' => isset($payload['utm_campaign']) ? mb_substr((string) $payload['utm_campaign'], 0, 255) : null,
+            'utm_content'  => isset($payload['utm_content'])  ? mb_substr((string) $payload['utm_content'],  0, 255) : null,
+            'utm_term'     => isset($payload['utm_term'])     ? mb_substr((string) $payload['utm_term'],     0, 255) : null,
         ]);
         return self::find($id) ?? throw new \RuntimeException('Failed to record form submission.');
     }

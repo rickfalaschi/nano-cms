@@ -66,13 +66,23 @@ final class PublicFormController
             return Response::redirect($back);
         }
 
+        // Pull UTM attribution from the session — captured by FrontRouter
+        // when the visitor first arrived with utm_* params in the URL.
+        // Empty when the visitor came in directly (no campaign).
+        $utm = Utm::fromSession($app->session);
+
         // Persist submission first — even if email fails, we keep the data.
         $submission = FormSubmission::create([
-            'form_id'    => $formId,
-            'data'       => $values,
-            'ip'         => $request->ip(),
-            'user_agent' => $request->userAgent(),
-            'referer'    => $request->server['HTTP_REFERER'] ?? null,
+            'form_id'      => $formId,
+            'data'         => $values,
+            'ip'           => $request->ip(),
+            'user_agent'   => $request->userAgent(),
+            'referer'      => $request->server['HTTP_REFERER'] ?? null,
+            'utm_source'   => $utm['utm_source'],
+            'utm_medium'   => $utm['utm_medium'],
+            'utm_campaign' => $utm['utm_campaign'],
+            'utm_content'  => $utm['utm_content'],
+            'utm_term'     => $utm['utm_term'],
         ]);
 
         // Email the recipients configured in the admin panel.

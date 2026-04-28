@@ -134,6 +134,28 @@ $label = (string) ($form['label'] ?? $formId);
                             <?php if ($s->referer): ?>
                                 <tr><td style="color:var(--fg-subtle)">Página de origem</td><td style="font-family:var(--font-mono);font-size:11px;word-break:break-all"><?= e($s->referer) ?></td></tr>
                             <?php endif; ?>
+
+                            <?php
+                            // UTM attribution — only rendered when at least one is set
+                            $utmRows = [
+                                'Campanha (utm_campaign)' => $s->utmCampaign,
+                                'Origem (utm_source)'     => $s->utmSource,
+                                'Mídia (utm_medium)'      => $s->utmMedium,
+                                'Conteúdo (utm_content)'  => $s->utmContent,
+                                'Termo (utm_term)'        => $s->utmTerm,
+                            ];
+                            $utmRows = array_filter($utmRows, fn($v) => $v !== null && $v !== '');
+                            ?>
+                            <?php if ($utmRows !== []): ?>
+                                <tr><td colspan="2" style="padding-top:var(--s-3);border-top:1px solid var(--line);color:var(--ink-3);font-size:11.5px;text-transform:uppercase;letter-spacing:0.06em;font-weight:500">UTM</td></tr>
+                                <?php foreach ($utmRows as $label => $val): ?>
+                                    <tr>
+                                        <td style="color:var(--fg-subtle)"><?= e($label) ?></td>
+                                        <td style="font-family:var(--font-mono);font-size:11px;word-break:break-all"><?= e((string) $val) ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+
                             <?php if ($s->sentTo): ?>
                                 <tr><td style="color:var(--fg-subtle)">Enviado para</td><td style="font-family:var(--font-mono);font-size:11px"><?= e($s->sentTo) ?></td></tr>
                             <?php endif; ?>

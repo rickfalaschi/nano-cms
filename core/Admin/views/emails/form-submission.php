@@ -62,6 +62,43 @@ $label = (string) ($form['label'] ?? $formId);
           </td>
         </tr>
 
+        <?php
+        // UTM block — only rendered when at least one is set. Mirrors the
+        // admin panel layout: separator + small "ORIGEM" header + key/value
+        // rows. Helps the recipient gauge lead source right from the inbox.
+        $utmRows = [
+            'Campanha' => $submission->utmCampaign,
+            'Origem'   => $submission->utmSource,
+            'Mídia'    => $submission->utmMedium,
+            'Conteúdo' => $submission->utmContent,
+            'Termo'    => $submission->utmTerm,
+        ];
+        $utmRows = array_filter($utmRows, fn($v) => $v !== null && $v !== '');
+        ?>
+        <?php if ($utmRows !== []): ?>
+          <tr>
+            <td style="padding:8px 32px 0;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;border-top:1px solid #e6e6e8;">
+                <tr>
+                  <td colspan="2" style="padding:14px 0 6px;font-size:11px;color:#6b6b6b;text-transform:uppercase;letter-spacing:0.06em;font-weight:500;">
+                    Origem · UTM
+                  </td>
+                </tr>
+                <?php foreach ($utmRows as $label => $val): ?>
+                  <tr>
+                    <td style="padding:6px 0;width:140px;vertical-align:top;font-size:12px;color:#6b6b6b;">
+                      <?= e($label) ?>
+                    </td>
+                    <td style="padding:6px 0;font-size:13px;color:#0a0a0a;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all;">
+                      <?= e((string) $val) ?>
+                    </td>
+                  </tr>
+                <?php endforeach; ?>
+              </table>
+            </td>
+          </tr>
+        <?php endif; ?>
+
         <tr>
           <td style="padding:16px 32px 24px;">
             <p style="margin:0;font-size:11px;color:#888;line-height:1.5;">

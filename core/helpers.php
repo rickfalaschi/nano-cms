@@ -188,6 +188,23 @@ if (!function_exists('form_field')) {
     }
 }
 
+if (!function_exists('utm_params')) {
+    /**
+     * UTMs currently attributed to this session — captured automatically
+     * from the request query and persisted across navigation. Returns the
+     * 5 standard fields with null for unset values, so a template can do:
+     *
+     *   $utm = utm_params();
+     *   if ($utm['utm_source']) { ... }
+     *
+     * @return array{utm_source: ?string, utm_medium: ?string, utm_campaign: ?string, utm_content: ?string, utm_term: ?string}
+     */
+    function utm_params(): array
+    {
+        return \Nano\Utm::fromSession(\Nano\App::instance()->session);
+    }
+}
+
 if (!function_exists('redirect')) {
     function redirect(string $url, int $status = 302): Response
     {
