@@ -28,6 +28,14 @@ final class FrontRouter
             $path = '';
         }
 
+        // Built-in /sitemap.xml — covers pages, paged item types, and
+        // term archives for taxonomies referenced by paged types. Checked
+        // before page resolution so a page configured with url:/sitemap.xml
+        // can't accidentally shadow it.
+        if ($path === '/sitemap.xml') {
+            return Response::xml(Sitemap::generate($config));
+        }
+
         $page = Page::resolveByUrl($path === '' ? '/' : $path, $config);
         if ($page !== null) {
             return self::renderPage($page, $config);
@@ -82,9 +90,11 @@ final class FrontRouter
                 continue;
             }
 
-            if (count($segments) === 1) {
-                return self::renderArchive($type, $def, $config);
-            }
+            // Item types only route singles. To get an "archive" view (e.g.
+            // /blog listing all posts), configure a regular page in
+            // site.json — that's what handles /blog → page-blog.php today.
+            // A bare /{slug} segment falls through here and either matches
+            // a configured page or returns 404.
             if (count($segments) === 2) {
                 return self::renderSingle($type, $def, $segments[1], $config);
             }
@@ -128,20 +138,6 @@ final class FrontRouter
         $context->record = $item;
 
         return Response::html(self::renderWithFallback($view, $template, ['item' => $context], 'single.php'));
-    }
-
-    private static function renderArchive(string $type, array $def, Config $config): Response
-    {
-        $template = (string) ($def['archive_template'] ?? "archive-{$type}.php");
-        $view = new View($config->path('theme') . '/templates');
-        $view->share('site', $config->site('site'));
-        $view->share('config', $config);
-
-        $items = Item::published($type);
-        $context = new TemplateContext(type: 'archive', key: $type, data: $def);
-        $context->records = $items;
-
-        return Response::html(self::renderWithFallback($view, $template, ['archive' => $context], 'archive.php'));
     }
 
     private static function renderTaxonomy(string $taxonomy, array $def, string $slug, Config $config): ?Response

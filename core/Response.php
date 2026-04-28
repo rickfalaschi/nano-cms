@@ -44,6 +44,14 @@ final class Response
             ->body((string) json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
     }
 
+    public static function xml(string $body, int $status = 200): Response
+    {
+        return (new self())
+            ->status($status)
+            ->header('Content-Type', 'application/xml; charset=UTF-8')
+            ->body($body);
+    }
+
     public static function redirect(string $url, int $status = 302): Response
     {
         return (new self())
