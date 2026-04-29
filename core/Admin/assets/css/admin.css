@@ -936,10 +936,20 @@ input, textarea, select { font-family: inherit; font-size: inherit; color: inher
   color: var(--ink);
 }
 
+/*
+ * Action column: keep the td as a normal table-cell so the row's
+ * bottom border extends correctly across all columns. `display: flex`
+ * on a <td> breaks table-cell layout — the cell renders outside the
+ * table's border box, leaving the row separator misaligned.
+ *
+ * Instead, align children inline-style and space them with margins.
+ */
 .table__actions {
-  display: flex;
-  gap: 6px;
-  justify-content: flex-end;
+  text-align: right;
+  white-space: nowrap;
+}
+.table__actions > * + * {
+  margin-left: 6px;
 }
 
 /* =============================================================================
