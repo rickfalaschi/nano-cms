@@ -24,7 +24,13 @@
 .env.local
 /config/env.local.php
 
+# Deploy config — SSH credentials and DB password for remote.
+# Created by nano-ssh-deploy / nano-ssh-download / nano-ssh-content.
+/.deploy/
+
+# Editor / tooling per-machine settings
 .DS_Store
 .idea/
 .vscode/
+.claude/
 *.log
