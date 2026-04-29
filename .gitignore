@@ -1,4 +1,3 @@
-/vendor/
 /storage/uploads/*
 !/storage/uploads/.gitkeep
 /storage/cache/*
@@ -27,4 +26,3 @@
 .idea/
 .vscode/
 *.log
-composer.lock
