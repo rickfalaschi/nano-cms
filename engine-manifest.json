@@ -1,0 +1,40 @@
+{
+  "format_version": 1,
+  "_comment": "Authoritative declaration of what's engine code (overwritten on upgrade) versus user content (never touched). Read by nano-install + nano-upgrade skills. To inspect what an upgrade would touch, read engine_paths.",
+
+  "github_repo": "rickfalaschi/nano-cms",
+
+  "engine_paths": [
+    "core/",
+    "bin/",
+    "migrations/",
+    "index.php",
+    ".htaccess.example",
+    "nginx.conf.example",
+    "robots.txt.example",
+    ".env.example",
+    "README.md",
+    "AGENTS.md",
+    ".gitignore",
+    "engine-manifest.json"
+  ],
+
+  "user_paths": [
+    "theme/",
+    "storage/",
+    ".env",
+    ".htaccess",
+    "nginx.conf",
+    "robots.txt",
+    ".deploy/",
+    ".claude/",
+    ".nano-version"
+  ],
+
+  "post_install_cleanup": [
+    "INSTALL.md"
+  ],
+
+  "min_php_version": "8.2",
+  "min_mysql_version": "5.7"
+}
