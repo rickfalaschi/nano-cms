@@ -36,7 +36,7 @@ core/                      Engine. Do not edit unless extending the platform.
 config/
   env.php                  App + DB config (do not commit secrets)
   site.json                Site schema. Edit this to define structure.
-migrations/                Versioned SQL migrations (timestamped files)
+migrations/                Versioned SQL migrations (timestamped files; removed after install)
 storage/uploads/           Uploaded media (served at /uploads/...)
 storage/cache/             HTML cache (future)
 storage/logs/              Logs
@@ -290,7 +290,7 @@ are generated lazily on first request, then cached on disk.
 
 ## Database
 
-Tables (see `migrations/` for full schema):
+Tables (see `migrations/` for full schema — that folder is removed by the install skill after applying, but remains the source of truth in the repo):
 
 - `users` — admin users
 - `pages` — one row per `pages.{key}` from `site.json`
