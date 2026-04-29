@@ -291,8 +291,8 @@ $commands = [
         passthru(sprintf(
             'php -S localhost:%d -t %s %s',
             $port,
-            escapeshellarg($rootPath . '/public'),
-            escapeshellarg($rootPath . '/public/index.php')
+            escapeshellarg($rootPath),
+            escapeshellarg($rootPath . '/index.php')
         ));
     },
 ];

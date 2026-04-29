@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-require_once dirname(__DIR__) . '/core/Bootstrap.php';
+require_once __DIR__ . '/core/Bootstrap.php';
 
 try {
-    $app = Nano\Bootstrap::boot(dirname(__DIR__));
+    $app = Nano\Bootstrap::boot(__DIR__);
     $app->run();
 } catch (Nano\SetupException $e) {
     http_response_code(503);

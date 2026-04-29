@@ -15,7 +15,7 @@ final class Setup
         $cssPath = '/' . trim(($_SERVER['SCRIPT_NAME'] ?? ''), '/');
         // Best-effort guess at base path so the page can load without DB
         $base = '';
-        foreach (['/public/index.php', '/index.php'] as $suffix) {
+        foreach (['/index.php', '/public/index.php'] as $suffix) {
             if (str_ends_with($cssPath, $suffix)) {
                 $base = substr($cssPath, 0, -strlen($suffix));
                 break;

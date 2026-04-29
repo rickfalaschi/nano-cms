@@ -48,9 +48,11 @@ theme/                     Project theme — a SEPARATE package, like WordPress.
   style.css                Theme stylesheet
   templates/               Page, single, archive, taxonomy templates
   partials/                header.php, footer.php, etc.
-public/                    Document root
-  index.php                Single front controller
-  .htaccess                URL rewriting
+index.php                  Single front controller (project root)
+.htaccess                  URL rewriting + blocks for internal dirs
+.htaccess.example          Template the Installer copies into .htaccess
+robots.txt                 Crawler instructions (per-project, gitignored)
+robots.txt.example         Template the Installer copies into robots.txt
 bin/nano                   CLI tool
 ```
 
@@ -246,8 +248,8 @@ keeps working whether the site is at `https://site.com/` or
 - `absolute_url($path = '/')` — full scheme + host URL. Reads `app.url` from
   env. Use for canonical tags, og:url, sitemap.
 - `admin_url($path = '/')` — admin URL with the configured admin prefix.
-- `asset($path)` — root-relative asset URL (CSS, JS, images in `public/`,
-  `theme/...`, `uploads/...`).
+- `asset($path)` — root-relative asset URL (CSS, JS, images at the project
+  root or under `theme/...`, plus engine-served paths like `uploads/...`).
 - `base_path()` — the prefix itself (for raw concatenation if needed).
 - `image_url($value, $size = 'full')` — resolve an image-field value to a URL.
   Accepts: **integer media id** (canonical), absolute URL, root-relative path,
@@ -349,8 +351,10 @@ paths like `/blog` — they break in subdirectory installs.
   `<?= field('content') /* trusted */ ?>`.
 - **CSRF protection** via `csrf_field()` is enforced on all admin POST routes.
 - **PDO with prepared statements** throughout. No string interpolation in SQL.
-- Sensitive files (`config/env.php`, `*.json`, `*.md`, `*.lock`) are blocked
-  by `public/.htaccess`.
+- Sensitive files (`config/env.php`, `*.json`, `*.md`, `*.lock`, `.env`,
+  `.example`) and internal directories (`core/`, `config/`, `migrations/`,
+  `storage/`, `bin/`, `vendor/`, plus all PHP files inside `theme/`) are
+  blocked by the root `.htaccess`.
 
 ## Do / Don't
 

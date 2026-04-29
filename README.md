@@ -17,9 +17,9 @@ mysql -u root -p -e "CREATE DATABASE nano CHARACTER SET utf8mb4 COLLATE utf8mb4_
 ./bin/nano serve 8080
 ```
 
-`install` copies `.htaccess.example`, `public/.htaccess.example`, and
-`public/robots.txt.example` into their live counterparts. These live files
-are **gitignored** — edit them freely (custom redirects, security headers,
+`install` copies `.htaccess.example` and `robots.txt.example` into their
+live counterparts (`.htaccess`, `robots.txt`). These live files are
+**gitignored** — edit them freely (custom redirects, security headers,
 crawler rules) and future Nano updates won't overwrite your changes.
 
 To pick up new templates added in later updates, run `./bin/nano files:init`.
@@ -47,35 +47,26 @@ Visit:
 ## Deployment
 
 Nano follows the front-controller pattern: every request goes through
-`public/index.php`, which loads the engine and routes the request.
+`index.php` at the project root, which loads the engine and routes the
+request. The `.htaccess` at the same level handles URL rewriting AND
+blocks direct access to internal directories (`core/`, `config/`,
+`migrations/`, `storage/`, `bin/`, `vendor/`, plus all PHP files inside
+`theme/`).
 
 ### Apache (most shared hosts)
 
-The repo ships with two `.htaccess` files:
-
-- **[public/.htaccess](public/.htaccess)** — front controller + security
-  headers + asset caching. Always required on Apache/LiteSpeed.
-- **[.htaccess](.htaccess)** (root) — only relevant when the document root
-  can't be set to `public/`. Forwards all requests into `public/` and blocks
-  direct access to `core/`, `config/`, `migrations/`, `storage/`, `bin/`, and
-  theme PHP files.
-
-**Two deployment shapes:**
-
-1. **Recommended** — point the document root at `public/`. Delete the root
-   `.htaccess`, keep only `public/.htaccess`. The cleanest setup, available
-   on cPanel ("Document Root" setting), DirectAdmin, Plesk, Vercel, VPS.
-2. **Locked-doc-root shared hosts** (HostGator, Locaweb, KingHost, etc.) —
-   upload the entire project into `public_html/`. The root `.htaccess` does
-   the rewrite into `public/` and blocks the rest. URLs stay clean.
-
+Point the document root at the project root. The single `.htaccess`
+takes care of everything — pretty URLs, asset pass-through, and security.
 Make sure `mod_rewrite` is enabled (it is by default on every shared host
 that runs Apache/LiteSpeed).
+
+If your host locks the document root to `public_html/`, just upload the
+entire project there — the `.htaccess` works the same regardless.
 
 ### Nginx / PHP-FPM
 
 See [nginx.conf.example](nginx.conf.example) for a server block. Set the
-`root` directive to `.../nano/public` and `try_files $uri $uri/ /index.php`.
+`root` directive to the project root and `try_files $uri $uri/ /index.php`.
 
 ### Built-in PHP server (development only)
 
@@ -83,5 +74,6 @@ See [nginx.conf.example](nginx.conf.example) for a server block. Set the
 ./bin/nano serve 8080
 ```
 
-This bypasses Apache/Nginx entirely and routes through `public/index.php`,
-so neither `.htaccess` file is consulted during development.
+Routes through `index.php` directly — `.htaccess` isn't consulted during
+development. The dev server falls back to the front controller for any
+path that isn't a real file.

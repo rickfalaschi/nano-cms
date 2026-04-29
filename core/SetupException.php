@@ -8,7 +8,7 @@ namespace Nano;
  * Thrown by the boot sequence when the install is incomplete and we cannot
  * complete it automatically (because INITIAL_USER credentials are missing).
  *
- * The caller (`public/index.php`) catches this and renders the setup page.
+ * The caller (`index.php` at the project root) catches this and renders the setup page.
  */
 final class SetupException extends \RuntimeException
 {

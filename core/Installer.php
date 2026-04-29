@@ -203,9 +203,8 @@ final class Installer
      * point, copy on install, leave alone afterwards.
      */
     public const PROJECT_FILE_TEMPLATES = [
-        '.htaccess.example'              => '.htaccess',
-        'public/.htaccess.example'       => 'public/.htaccess',
-        'public/robots.txt.example'      => 'public/robots.txt',
+        '.htaccess.example'   => '.htaccess',
+        'robots.txt.example'  => 'robots.txt',
     ];
 
     /**
@@ -233,8 +232,8 @@ final class Installer
             if (file_exists($dst)) continue;
             if (!is_file($src)) continue;
 
-            // Make sure parent dir exists (it always should, since these
-            // live in `public/` or root, but defensive code is cheap).
+            // Make sure parent dir exists (always should, since these live
+            // at the project root, but defensive code is cheap).
             $dir = dirname($dst);
             if (!is_dir($dir)) @mkdir($dir, 0775, true);
 

@@ -16,8 +16,7 @@
 # (custom redirects, security headers, robots rules, etc.) is expected and
 # should NOT be overwritten by future updates of Nano core.
 /.htaccess
-/public/.htaccess
-/public/robots.txt
+/robots.txt
 
 # Environment — local secrets, never commit
 .env

@@ -121,7 +121,10 @@ final class App
         }
 
         $script = (string) ($_SERVER['SCRIPT_NAME'] ?? '');
-        foreach (['/public/index.php', '/index.php'] as $suffix) {
+        // index.php lives at the project root (single-tier layout). The
+        // legacy `/public/index.php` suffix is checked too in case someone
+        // is running an older install that still has the public/ subdir.
+        foreach (['/index.php', '/public/index.php'] as $suffix) {
             if (str_ends_with($script, $suffix)) {
                 $base = substr($script, 0, -strlen($suffix));
                 return $base === '' ? '' : '/' . trim($base, '/');

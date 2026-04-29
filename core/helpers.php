@@ -87,8 +87,9 @@ if (!function_exists('base_path')) {
 
 if (!function_exists('asset')) {
     /**
-     * Root-relative URL for a file in `public/` or served by the engine
-     * (e.g., `/theme/...`, `/uploads/...`). Adds the install base path.
+     * Root-relative URL for a static file (CSS/JS/images at the project
+     * root or under `theme/`) or an engine-served resource like
+     * `/theme/...` and `/uploads/...`. Adds the install base path.
      */
     function asset(string $path): string
     {

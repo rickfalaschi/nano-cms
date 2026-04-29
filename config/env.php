@@ -49,7 +49,6 @@ return [
         'storage'    => dirname(__DIR__) . '/storage',
         'uploads'    => dirname(__DIR__) . '/storage/uploads',
         'cache'      => dirname(__DIR__) . '/storage/cache',
-        'public'     => dirname(__DIR__) . '/public',
         'migrations' => dirname(__DIR__) . '/migrations',
     ],
 
