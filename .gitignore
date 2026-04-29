@@ -10,11 +10,13 @@
 #   git clone https://github.com/your-org/your-theme.git theme
 /theme/
 
-# Per-project files — Nano ships `.example` versions, the Installer copies
-# them into place, and from there they belong to the project. Editing them
-# (custom redirects, security headers, robots rules, etc.) is expected and
-# should NOT be overwritten by future updates of Nano core.
+# Per-project files — Nano ships `.example` versions; live versions are
+# gitignored so projects can customize them (custom redirects, security
+# headers, crawler rules, server-specific tuning) without future Nano
+# updates overwriting their changes. The `.example` files (.htaccess.example,
+# nginx.conf.example, robots.txt.example) remain versioned as templates.
 /.htaccess
+/nginx.conf
 /robots.txt
 
 # Environment — local secrets, never commit
