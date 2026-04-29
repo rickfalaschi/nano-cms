@@ -54,7 +54,7 @@ $commands = [
     'help' => function () {
         echo "Nano CMS — CLI\n";
         echo "Usage: bin/nano <command> [args] [--flags]\n\n";
-        echo "Commands:\n";
+        echo "Setup:\n";
         echo "  install                              Run a complete install (DB + migrations + user)\n";
         echo "    --email=<email>                    Override INITIAL_USER_EMAIL from .env\n";
         echo "    --password=<password>              Override INITIAL_USER_PASSWORD from .env\n";
@@ -66,6 +66,25 @@ $commands = [
         echo "  files:init                           Copy .htaccess.example, robots.txt.example into place\n";
         echo "  schema:validate                      Validate site.json structure\n";
         echo "  serve [port]                         Start built-in PHP server\n";
+        echo "\nContent (items — posts, services, etc.):\n";
+        echo "  item:types                           List item types defined in site.json\n";
+        echo "  item:schema <type>                   Show field schema for a type\n";
+        echo "  item:list <type>                     List items (filter --status, --search, --limit)\n";
+        echo "  item:get <type> <slug-or-id>         Get a single item as JSON\n";
+        echo "  item:create <type> --json=<JSON>     Create a new item (JSON or --json-stdin)\n";
+        echo "  item:update <type> <slug> --json=… Partial update (merges into fields)\n";
+        echo "  item:publish <type> <slug>           Set status=published, stamp published_at\n";
+        echo "  item:unpublish <type> <slug>         Set status=draft\n";
+        echo "  item:delete <type> <slug> --confirm  Delete an item (destructive)\n";
+        echo "\nContent (pages — singular page entities like home, about):\n";
+        echo "  page:list                            List configured pages\n";
+        echo "  page:schema <key>                    Show field schema for a page\n";
+        echo "  page:get <key>                       Get current page data as JSON\n";
+        echo "  page:update <key> --json=<JSON>      Update page fields (merges)\n";
+        echo "\nCommon flags for content commands:\n";
+        echo "  --format=json                        Machine-readable output (default: text)\n";
+        echo "  --dry-run                            Validate without saving (create/update only)\n";
+        echo "  --json-stdin                         Read --json payload from stdin (avoids quoting hell)\n";
         echo "\n";
     },
 
@@ -295,7 +314,174 @@ $commands = [
             escapeshellarg($rootPath . '/index.php')
         ));
     },
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Content commands (item:* and page:*)
+    //
+    // These dispatch to Nano\Commands\Content. The wiring here is intentionally
+    // thin — each closure boots the app, gathers args/flags, calls the static
+    // method, and returns. All real logic (schema resolution, validation,
+    // JSON formatting) lives in core/Commands/Content.php so it's testable
+    // and reusable from non-CLI contexts.
+    //
+    // Convention for input:
+    //   --json='{...}'        → JSON inline (escape hell on the shell)
+    //   --json-stdin          → read JSON payload from stdin (preferred for
+    //                           anything non-trivial; avoids escaping issues)
+    //
+    // Convention for output:
+    //   default               → human-friendly text on stdout, errors on stderr
+    //   --format=json         → single JSON line on stdout, structured errors
+    //                           ({"ok": false, ...}) instead of non-zero exit
+    // ─────────────────────────────────────────────────────────────────────
+
+    'item:types' => function () use ($rootPath, $flags) {
+        $app = Nano\Bootstrap::boot($rootPath);
+        Nano\Commands\Content::itemTypes($app, contentFormat($flags));
+    },
+
+    'item:schema' => function () use ($rootPath, $positional, $flags) {
+        $app = Nano\Bootstrap::boot($rootPath);
+        $type = $positional[0] ?? '';
+        if ($type === '') { fwrite(STDERR, "Usage: bin/nano item:schema <type>\n"); exit(1); }
+        Nano\Commands\Content::itemSchema($app, $type, contentFormat($flags));
+    },
+
+    'item:list' => function () use ($rootPath, $positional, $flags) {
+        $app = Nano\Bootstrap::boot($rootPath);
+        $type = $positional[0] ?? '';
+        if ($type === '') { fwrite(STDERR, "Usage: bin/nano item:list <type>\n"); exit(1); }
+        $status = isset($flags['status']) ? (string) $flags['status'] : null;
+        if ($status === 'all') $status = null; // model API treats null as no-filter
+        $search = isset($flags['search']) ? (string) $flags['search'] : null;
+        $limit  = isset($flags['limit'])  ? (int) $flags['limit'] : 100;
+        Nano\Commands\Content::itemList($app, $type, $status, $search, $limit, contentFormat($flags));
+    },
+
+    'item:get' => function () use ($rootPath, $positional, $flags) {
+        $app = Nano\Bootstrap::boot($rootPath);
+        $type = $positional[0] ?? '';
+        $slug = $positional[1] ?? '';
+        if ($type === '' || $slug === '') {
+            fwrite(STDERR, "Usage: bin/nano item:get <type> <slug-or-id>\n"); exit(1);
+        }
+        Nano\Commands\Content::itemGet($app, $type, $slug, contentFormat($flags));
+    },
+
+    'item:create' => function () use ($rootPath, $positional, $flags) {
+        $app = Nano\Bootstrap::boot($rootPath);
+        $type = $positional[0] ?? '';
+        if ($type === '') { fwrite(STDERR, "Usage: bin/nano item:create <type> --json=<JSON>\n"); exit(1); }
+        $json = readJsonInput($flags);
+        if ($json === null) { fwrite(STDERR, "Pass --json='{...}' or --json-stdin\n"); exit(1); }
+        Nano\Commands\Content::itemCreate($app, $type, $json, !empty($flags['dry-run']), contentFormat($flags));
+    },
+
+    'item:update' => function () use ($rootPath, $positional, $flags) {
+        $app = Nano\Bootstrap::boot($rootPath);
+        $type = $positional[0] ?? '';
+        $slug = $positional[1] ?? '';
+        if ($type === '' || $slug === '') {
+            fwrite(STDERR, "Usage: bin/nano item:update <type> <slug-or-id> --json=<JSON>\n"); exit(1);
+        }
+        $json = readJsonInput($flags);
+        if ($json === null) { fwrite(STDERR, "Pass --json='{...}' or --json-stdin\n"); exit(1); }
+        Nano\Commands\Content::itemUpdate($app, $type, $slug, $json, !empty($flags['dry-run']), contentFormat($flags));
+    },
+
+    'item:publish' => function () use ($rootPath, $positional, $flags) {
+        $app = Nano\Bootstrap::boot($rootPath);
+        $type = $positional[0] ?? '';
+        $slug = $positional[1] ?? '';
+        if ($type === '' || $slug === '') {
+            fwrite(STDERR, "Usage: bin/nano item:publish <type> <slug-or-id>\n"); exit(1);
+        }
+        Nano\Commands\Content::itemPublish($app, $type, $slug, contentFormat($flags));
+    },
+
+    'item:unpublish' => function () use ($rootPath, $positional, $flags) {
+        $app = Nano\Bootstrap::boot($rootPath);
+        $type = $positional[0] ?? '';
+        $slug = $positional[1] ?? '';
+        if ($type === '' || $slug === '') {
+            fwrite(STDERR, "Usage: bin/nano item:unpublish <type> <slug-or-id>\n"); exit(1);
+        }
+        Nano\Commands\Content::itemUnpublish($app, $type, $slug, contentFormat($flags));
+    },
+
+    'item:delete' => function () use ($rootPath, $positional, $flags) {
+        $app = Nano\Bootstrap::boot($rootPath);
+        $type = $positional[0] ?? '';
+        $slug = $positional[1] ?? '';
+        if ($type === '' || $slug === '') {
+            fwrite(STDERR, "Usage: bin/nano item:delete <type> <slug-or-id> --confirm\n"); exit(1);
+        }
+        Nano\Commands\Content::itemDelete($app, $type, $slug, !empty($flags['confirm']), contentFormat($flags));
+    },
+
+    'page:list' => function () use ($rootPath, $flags) {
+        $app = Nano\Bootstrap::boot($rootPath);
+        Nano\Commands\Content::pageList($app, contentFormat($flags));
+    },
+
+    'page:schema' => function () use ($rootPath, $positional, $flags) {
+        $app = Nano\Bootstrap::boot($rootPath);
+        $key = $positional[0] ?? '';
+        if ($key === '') { fwrite(STDERR, "Usage: bin/nano page:schema <key>\n"); exit(1); }
+        Nano\Commands\Content::pageSchema($app, $key, contentFormat($flags));
+    },
+
+    'page:get' => function () use ($rootPath, $positional, $flags) {
+        $app = Nano\Bootstrap::boot($rootPath);
+        $key = $positional[0] ?? '';
+        if ($key === '') { fwrite(STDERR, "Usage: bin/nano page:get <key>\n"); exit(1); }
+        Nano\Commands\Content::pageGet($app, $key, contentFormat($flags));
+    },
+
+    'page:update' => function () use ($rootPath, $positional, $flags) {
+        $app = Nano\Bootstrap::boot($rootPath);
+        $key = $positional[0] ?? '';
+        if ($key === '') {
+            fwrite(STDERR, "Usage: bin/nano page:update <key> --json=<JSON>\n"); exit(1);
+        }
+        $json = readJsonInput($flags);
+        if ($json === null) { fwrite(STDERR, "Pass --json='{...}' or --json-stdin\n"); exit(1); }
+        Nano\Commands\Content::pageUpdate($app, $key, $json, !empty($flags['dry-run']), contentFormat($flags));
+    },
 ];
+
+/**
+ * Resolve --format flag for content commands. Falls back to 'text'.
+ * Lives outside the $commands array so all closures can use it without
+ * each having to peek at $flags themselves.
+ */
+function contentFormat(array $flags): string
+{
+    $f = (string) ($flags['format'] ?? 'text');
+    return in_array($f, ['text', 'json'], true) ? $f : 'text';
+}
+
+/**
+ * Read a JSON payload from --json='...' or stdin (--json-stdin).
+ * Returns the raw JSON string (NOT decoded) so the Content class can do
+ * its own decoding-with-error-message. Returns null when neither source
+ * was provided — callers should error.
+ *
+ * Stdin mode exists because shell-escaping nontrivial JSON payloads is
+ * miserable (newlines, quotes, special chars). The skill almost always
+ * uses stdin; humans typing a quick test usually use --json='...'.
+ */
+function readJsonInput(array $flags): ?string
+{
+    if (!empty($flags['json-stdin'])) {
+        $data = stream_get_contents(STDIN);
+        return $data === false ? null : $data;
+    }
+    if (isset($flags['json']) && is_string($flags['json'])) {
+        return $flags['json'];
+    }
+    return null;
+}
 
 if (!isset($commands[$command])) {
     fwrite(STDERR, "Unknown command: {$command}\n");
