@@ -68,8 +68,26 @@ $icon = function (string $name): string {
     <link rel="stylesheet" href="<?= e(admin_url('__static/css/admin.css')) ?>">
 </head>
 <body data-admin-base="<?= e(rtrim(admin_url(''), '/')) ?>">
-    <div class="app">
-        <aside class="app__sidebar">
+    <div class="app" data-app>
+        <button
+            type="button"
+            class="app__menu-toggle"
+            aria-label="Abrir menu"
+            aria-expanded="false"
+            aria-controls="app-sidebar"
+            data-menu-toggle>
+            <svg class="app__menu-icon app__menu-icon--open" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="3" y1="6" x2="21" y2="6"/>
+                <line x1="3" y1="12" x2="21" y2="12"/>
+                <line x1="3" y1="18" x2="21" y2="18"/>
+            </svg>
+            <svg class="app__menu-icon app__menu-icon--close" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+        </button>
+        <div class="app__backdrop" data-menu-backdrop aria-hidden="true"></div>
+        <aside class="app__sidebar" id="app-sidebar">
             <div class="brand">
                 <span class="brand__mark">N</span>
                 <div class="brand__lockup">

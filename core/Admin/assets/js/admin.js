@@ -515,6 +515,49 @@ document.querySelectorAll('[data-media-panel-close]').forEach((el) =>
   el.addEventListener('click', closeMediaPanel)
 );
 
+/*
+ * Mobile menu toggle.
+ *
+ * On viewports ≤980px the sidebar is off-canvas (CSS hides it via
+ * transform). The hamburger button toggles a `data-app-menu="open"`
+ * attribute on the .app shell — CSS uses that to slide the sidebar in
+ * and reveal the backdrop. Backdrop, ESC, and clicking any nav link
+ * all close the menu, matching what users expect from this UI pattern.
+ *
+ * No-op on desktop because the toggle button is `display: none` there.
+ */
+const initMobileMenu = () => {
+  const app = document.querySelector('[data-app]');
+  const toggle = document.querySelector('[data-menu-toggle]');
+  const backdrop = document.querySelector('[data-menu-backdrop]');
+  if (!app || !toggle) return;
+
+  const setOpen = (open) => {
+    if (open) app.dataset.appMenu = 'open';
+    else delete app.dataset.appMenu;
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    toggle.setAttribute('aria-label', open ? 'Fechar menu' : 'Abrir menu');
+  };
+
+  toggle.addEventListener('click', () => {
+    setOpen(app.dataset.appMenu !== 'open');
+  });
+
+  if (backdrop) {
+    backdrop.addEventListener('click', () => setOpen(false));
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && app.dataset.appMenu === 'open') setOpen(false);
+  });
+
+  // Auto-close after navigating from a sidebar link — saves the user
+  // a tap once they've picked their destination.
+  app.querySelectorAll('.app__sidebar a').forEach((link) => {
+    link.addEventListener('click', () => setOpen(false));
+  });
+};
+
 document.querySelectorAll('[data-richtext]').forEach(initRichText);
 document.querySelectorAll('[data-repeater]').forEach(initRepeater);
 document.querySelectorAll('[data-image-field]').forEach(initImageField);
@@ -523,3 +566,4 @@ document.querySelectorAll('[data-media-grid] .media-grid__item').forEach(bindGri
 initSlugify();
 initConfirms();
 initAutosubmit();
+initMobileMenu();
