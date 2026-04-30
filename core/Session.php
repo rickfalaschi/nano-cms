@@ -23,9 +23,40 @@ final class Session
                 'path' => '/',
                 'httponly' => true,
                 'samesite' => 'Lax',
+                // Secure flag is conditional: only set on HTTPS requests.
+                // Setting it unconditionally would break local-dev over
+                // HTTP (the browser would refuse the cookie and auth
+                // would never persist). The detection covers both the
+                // direct-Apache/Nginx case (HTTPS server var) and the
+                // reverse-proxy / Cloudflare case (X-Forwarded-Proto
+                // header), since most production deploys terminate TLS
+                // upstream and forward the original protocol info.
+                'secure' => self::isHttps(),
             ]);
             session_start();
         }
+    }
+
+    /**
+     * Best-effort HTTPS detection. Two signals:
+     *   1. PHP's HTTPS server var — present and non-"off" when the web
+     *      server itself terminated TLS (Apache mod_ssl, nginx ssl_*).
+     *   2. X-Forwarded-Proto — set by reverse proxies, load balancers,
+     *      and CDN/edge services (Cloudflare, AWS ALB, etc.) when they
+     *      handle TLS upstream and pass plaintext to the origin.
+     *
+     * Either being true means the original request reached us over
+     * HTTPS — safe to mark cookies Secure.
+     */
+    private static function isHttps(): bool
+    {
+        if (!empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off') {
+            return true;
+        }
+        if (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https') {
+            return true;
+        }
+        return false;
     }
 
     public function get(string $key, mixed $default = null): mixed
