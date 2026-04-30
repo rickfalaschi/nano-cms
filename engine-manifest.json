@@ -32,7 +32,10 @@
   ],
 
   "post_install_cleanup": [
-    "INSTALL.md"
+    "INSTALL.md",
+    "nginx.conf.example",
+    ".gitignore",
+    "engine-manifest.json"
   ],
 
   "min_php_version": "8.2",
