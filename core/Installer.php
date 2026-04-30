@@ -182,8 +182,8 @@ final class Installer
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             throw new \RuntimeException('INITIAL_USER_EMAIL is not a valid email address.');
         }
-        if (strlen($password) < 6) {
-            throw new \RuntimeException('INITIAL_USER_PASSWORD must be at least 6 characters.');
+        if (strlen($password) < 8) {
+            throw new \RuntimeException('INITIAL_USER_PASSWORD must be at least 8 characters.');
         }
 
         $user = User::create($email, $password, $name);

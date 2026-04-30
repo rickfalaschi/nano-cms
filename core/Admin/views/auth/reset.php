@@ -40,14 +40,14 @@
             <div class="field">
                 <label class="field__label" for="password">Nova senha</label>
                 <div class="field__control">
-                    <input class="input" type="password" name="password" id="password" required autofocus minlength="6" autocomplete="new-password" placeholder="Mínimo 6 caracteres">
+                    <input class="input" type="password" name="password" id="password" required autofocus minlength="8" autocomplete="new-password" placeholder="Mínimo 8 caracteres">
                 </div>
             </div>
 
             <div class="field">
                 <label class="field__label" for="password_confirm">Confirmar senha</label>
                 <div class="field__control">
-                    <input class="input" type="password" name="password_confirm" id="password_confirm" required minlength="6" autocomplete="new-password" placeholder="Repita a senha">
+                    <input class="input" type="password" name="password_confirm" id="password_confirm" required minlength="8" autocomplete="new-password" placeholder="Repita a senha">
                 </div>
             </div>
 

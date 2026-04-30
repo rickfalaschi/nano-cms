@@ -10,7 +10,7 @@ use Nano\Response;
 
 final class UserController extends Controller
 {
-    private const MIN_PASSWORD = 6;
+    private const MIN_PASSWORD = 8;
 
     public function index(Request $request): Response
     {

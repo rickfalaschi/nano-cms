@@ -57,7 +57,7 @@ $isSelf = $user !== null && $currentUser !== null && $user->id === $currentUser-
                 <?php endif; ?>
             </label>
             <div class="field__control">
-                <input class="input" type="password" name="password" id="password" <?= $isNew ? 'required' : '' ?> autocomplete="new-password" placeholder="<?= $isNew ? 'Mínimo 6 caracteres' : '••••••••' ?>">
+                <input class="input" type="password" name="password" id="password" <?= $isNew ? 'required' : '' ?> minlength="8" autocomplete="new-password" placeholder="<?= $isNew ? 'Mínimo 8 caracteres' : '••••••••' ?>">
             </div>
             <?php if (!empty($errors['password'])): ?>
                 <p class="field__help" style="color:var(--danger)"><?= e($errors['password']) ?></p>

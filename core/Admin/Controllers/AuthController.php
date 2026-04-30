@@ -6,6 +6,7 @@ namespace Nano\Admin\Controllers;
 
 use Nano\Request;
 use Nano\Response;
+use Nano\Services\LoginAttemptService;
 
 final class AuthController extends Controller
 {
@@ -25,14 +26,33 @@ final class AuthController extends Controller
             }
             $email = (string) ($request->post['email'] ?? '');
             $password = (string) ($request->post['password'] ?? '');
+            $ip = $request->ip();
 
-            if ($this->app->auth->attempt($email, $password)) {
-                $intended = $this->app->session->get('intended');
-                $this->app->session->forget('intended');
-                $target = is_string($intended) && $intended !== '' ? url($intended) : admin_url('');
-                return Response::redirect($target);
+            $throttle = new LoginAttemptService();
+
+            // Check rate limit BEFORE attempting auth. If locked, refuse
+            // without even consulting the password — the attempt would
+            // be recorded and could push the lock window further out.
+            $lock = $throttle->checkLock($email, $ip);
+            if ($lock['locked']) {
+                $minutes = (int) ceil($lock['retry_after_seconds'] / 60);
+                $error = sprintf(
+                    'Muitas tentativas falhas. Tente novamente em %d minuto%s.',
+                    $minutes,
+                    $minutes === 1 ? '' : 's'
+                );
+            } else {
+                $success = $this->app->auth->attempt($email, $password);
+                $throttle->record($email, $ip, $success);
+
+                if ($success) {
+                    $intended = $this->app->session->get('intended');
+                    $this->app->session->forget('intended');
+                    $target = is_string($intended) && $intended !== '' ? url($intended) : admin_url('');
+                    return Response::redirect($target);
+                }
+                $error = 'Email ou senha inválidos.';
             }
-            $error = 'Email ou senha inválidos.';
         }
 
         return $this->render('auth/login', [

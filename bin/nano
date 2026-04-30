@@ -66,6 +66,7 @@ $commands = [
         echo "  files:init                           Copy .htaccess.example, robots.txt.example into place\n";
         echo "  schema:validate                      Validate site.json structure\n";
         echo "  serve [port]                         Start built-in PHP server\n";
+        echo "  cleanup:login-attempts               Drop login_attempts older than --days=30\n";
         echo "\nContent (items — posts, services, etc.):\n";
         echo "  item:types                           List item types defined in site.json\n";
         echo "  item:schema <type>                   Show field schema for a type\n";
@@ -313,6 +314,30 @@ $commands = [
             escapeshellarg($rootPath),
             escapeshellarg($rootPath . '/index.php')
         ));
+    },
+
+    /*
+     * Drop login_attempts rows older than --days (default 30).
+     *
+     * Why this exists: the rate-limiter (LoginAttemptService) keeps
+     * inserting rows but never cleans up — the throttle queries always
+     * filter by time window so leaving old rows around doesn't break
+     * anything, just wastes disk. Run this manually via SSH every now
+     * and then, or schedule via cron in /etc/crontab if you prefer:
+     *   0 3 * * *  cd /var/www/<project> && php bin/nano cleanup:login-attempts
+     *
+     * Idempotent: running it twice in a row deletes nothing the second
+     * time.
+     */
+    'cleanup:login-attempts' => function () use ($rootPath, $flags) {
+        $app = Nano\Bootstrap::boot($rootPath);
+        $days = isset($flags['days']) ? max(1, (int) $flags['days']) : 30;
+
+        $service = new Nano\Services\LoginAttemptService();
+        $deleted = $service->cleanup($days);
+
+        echo "Removed {$deleted} login_attempts row" . ($deleted === 1 ? '' : 's')
+           . " older than {$days} day" . ($days === 1 ? '' : 's') . ".\n";
     },
 
     // ─────────────────────────────────────────────────────────────────────

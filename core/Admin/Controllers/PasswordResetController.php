@@ -12,7 +12,7 @@ use Nano\Response;
 
 final class PasswordResetController extends Controller
 {
-    private const MIN_PASSWORD = 6;
+    private const MIN_PASSWORD = 8;
 
     public function forgot(Request $request): Response
     {
