@@ -90,6 +90,24 @@ final class MediaService
             }
         }
 
+        // Sanitize SVG before any reference reaches the DB.
+        //
+        // SVG files served with Content-Type: image/svg+xml render as
+        // active content in the browser — any <script>, on* event
+        // handler, or javascript: URI inside would execute in the site's
+        // origin (stored XSS). We strip dangerous elements/attributes
+        // server-side so the file on disk is safe to serve. If the SVG
+        // can't be parsed (broken XML, malicious payload disguised as
+        // SVG), the upload is rejected entirely.
+        if ($mime === 'image/svg+xml') {
+            if (!$this->sanitizeSvg($destPath)) {
+                @unlink($destPath);
+                throw new \RuntimeException(
+                    'SVG inválido ou contém conteúdo não permitido (script, eventos, URIs javascript:).'
+                );
+            }
+        }
+
         $width = null;
         $height = null;
         if (str_starts_with($mime, 'image/') && $mime !== 'image/svg+xml') {
@@ -120,6 +138,143 @@ final class MediaService
         }
 
         App::instance()->db->delete('media', ['id' => $media->id]);
+    }
+
+    /**
+     * Sanitize an SVG file in place. Removes scripts, event handlers,
+     * external resource references and other vectors that could turn an
+     * uploaded SVG into a stored XSS when rendered in the browser.
+     *
+     * Returns false if the file can't be parsed as XML, in which case
+     * the caller should reject the upload. Returns true after the file
+     * has been overwritten with the sanitized version.
+     *
+     * Strategy:
+     *   1. Parse with DOMDocument using LIBXML_NONET (no external DTDs)
+     *      and without LIBXML_NOENT (so entities are not expanded — XXE
+     *      protection). PHP 8+ disables external entity loading by
+     *      default; we don't reactivate it.
+     *   2. Drop dangerous elements wholesale: <script>, <foreignObject>
+     *      (can host arbitrary HTML/JS), and a few others.
+     *   3. For every remaining element, drop attributes that could
+     *      execute code: any on* event handler, href/xlink:href values
+     *      starting with javascript:/vbscript:/data:, and `style` values
+     *      mentioning expression()/javascript:/behavior:.
+     *   4. Save back to disk.
+     */
+    private function sanitizeSvg(string $path): bool
+    {
+        $content = @file_get_contents($path);
+        if (!is_string($content) || $content === '') {
+            return false;
+        }
+
+        $previousErrors = libxml_use_internal_errors(true);
+
+        $dom = new \DOMDocument();
+        // LIBXML_NONET prevents fetching external resources during parsing;
+        // we deliberately don't pass LIBXML_NOENT so internal entities are
+        // left as-is rather than expanded (entity expansion is a known XXE
+        // and DoS vector).
+        $loaded = $dom->loadXML($content, LIBXML_NONET);
+
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousErrors);
+
+        if (!$loaded) {
+            return false;
+        }
+
+        // 0. Strip the DOCTYPE entirely. SVG doesn't need one in practice,
+        //    and a DOCTYPE that declares external entities (`<!ENTITY xxe
+        //    SYSTEM "file://...">`) is a vector even when entity expansion
+        //    is disabled — some parsers downstream may still resolve it.
+        if ($dom->doctype !== null) {
+            $dom->removeChild($dom->doctype);
+        }
+
+        // 1. Drop entire elements that are dangerous regardless of attrs.
+        //    `foreignObject` can embed arbitrary HTML (including <script>).
+        //    `handler`/`listener` are deprecated SVG event-binding elements
+        //    but historically supported in some renderers.
+        $dangerousTags = [
+            'script', 'foreignObject', 'iframe', 'object', 'embed',
+            'handler', 'listener', 'set',
+        ];
+        $xpath = new \DOMXPath($dom);
+        foreach ($dangerousTags as $tag) {
+            // local-name() makes the match case-insensitive across XML namespaces.
+            foreach ($xpath->query("//*[local-name()='{$tag}']") ?: [] as $node) {
+                if ($node->parentNode !== null) {
+                    $node->parentNode->removeChild($node);
+                }
+            }
+        }
+
+        // 2. Walk every remaining element and strip dangerous attributes.
+        foreach ($xpath->query('//*') ?: [] as $element) {
+            if (!$element instanceof \DOMElement) continue;
+
+            // Snapshot attribute list since modifying it during iteration
+            // is undefined behavior in DOM.
+            $attrs = [];
+            foreach ($element->attributes as $attr) {
+                $attrs[] = $attr;
+            }
+
+            foreach ($attrs as $attr) {
+                $localName = strtolower($attr->localName ?? $attr->name);
+                $value = trim($attr->value);
+                $valueLower = strtolower($value);
+
+                $strip = false;
+
+                // 2a. Any event handler (onclick, onload, onerror, …).
+                if (str_starts_with($localName, 'on')) {
+                    $strip = true;
+                }
+
+                // 2b. href/xlink:href pointing at code-execution URI schemes.
+                //     `data:` is also stripped — data URIs can carry SVG with
+                //     embedded scripts, defeating our sanitization.
+                if (in_array($localName, ['href', 'xlink:href'], true)) {
+                    if (
+                        str_starts_with($valueLower, 'javascript:')
+                        || str_starts_with($valueLower, 'vbscript:')
+                        || str_starts_with($valueLower, 'data:')
+                    ) {
+                        $strip = true;
+                    }
+                }
+
+                // 2c. style attribute with code-execution patterns.
+                if ($localName === 'style') {
+                    if (
+                        str_contains($valueLower, 'javascript:')
+                        || str_contains($valueLower, 'expression(')
+                        || str_contains($valueLower, 'behavior:')
+                    ) {
+                        $strip = true;
+                    }
+                }
+
+                if ($strip) {
+                    if ($attr->namespaceURI !== null && $attr->namespaceURI !== '') {
+                        $element->removeAttributeNS($attr->namespaceURI, $attr->localName);
+                    } else {
+                        $element->removeAttribute($attr->name);
+                    }
+                }
+            }
+        }
+
+        // 3. Save back. saveXML() returns false on failure (very rare).
+        $sanitized = $dom->saveXML();
+        if (!is_string($sanitized) || $sanitized === '') {
+            return false;
+        }
+
+        return @file_put_contents($path, $sanitized) !== false;
     }
 
     private function uniqueFilename(string $name): string
