@@ -76,13 +76,19 @@ final class Media
         return array_map(fn($r) => self::fromRow($r), $rows);
     }
 
+    /**
+     * Public URL for the media file.
+     *
+     * The $size parameter exists for backward compatibility with themes
+     * that pass a variant name (e.g. 'thumb', 'card'). This engine no
+     * longer supports image variants — every call returns the URL of the
+     * original file regardless of $size. Themes wanting responsive images
+     * should use external preprocessing or srcset with externally hosted
+     * derivatives.
+     */
     public function url(string $size = 'full'): string
     {
-        $base = App::instance()->basePath;
-        if ($size === '' || $size === 'full' || !str_starts_with($this->mime, 'image/') || $this->mime === 'image/svg+xml') {
-            return $base . '/uploads/' . $this->filename;
-        }
-        return $base . '/uploads/' . $size . '/' . $this->filename;
+        return App::instance()->basePath . '/uploads/' . $this->filename;
     }
 
     public function isImage(): bool

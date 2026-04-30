@@ -155,7 +155,7 @@ final class FieldRenderer
         $previewHtml = '';
         $hasMedia = $media !== null;
         if ($media !== null) {
-            $previewSrc = $media->isImage() ? $media->url('thumb') : '';
+            $previewSrc = $media->isImage() ? $media->url() : '';
             $previewHtml = sprintf(
                 '<div class="image-field__current">
                     %s

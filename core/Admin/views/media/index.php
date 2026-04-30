@@ -43,7 +43,7 @@ $baseUrl = admin_url('media');
         <li class="media-grid__item"
             data-media-id="<?= e((string) $m->id) ?>"
             data-media-url="<?= e($m->url('full')) ?>"
-            data-media-thumb="<?= e($m->isImage() ? $m->url('thumb') : '') ?>"
+            data-media-thumb="<?= e($m->isImage() ? $m->url() : '') ?>"
             data-media-name="<?= e($m->originalName) ?>"
             data-media-mime="<?= e($m->mime) ?>"
             data-media-size="<?= e($m->humanSize()) ?>"
@@ -53,7 +53,7 @@ $baseUrl = admin_url('media');
             data-media-created-at="<?= e($m->createdAt) ?>">
             <button type="button" class="media-grid__tile" data-media-open>
                 <?php if ($m->isImage()): ?>
-                    <img src="<?= e($m->url('thumb')) ?>" alt="" loading="lazy">
+                    <img src="<?= e($m->url()) ?>" alt="" loading="lazy">
                 <?php else: ?>
                     <div class="media-grid__doc">
                         <span><?= e(strtoupper(pathinfo($m->filename, PATHINFO_EXTENSION))) ?></span>

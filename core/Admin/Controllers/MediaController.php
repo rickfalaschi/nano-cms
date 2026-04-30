@@ -118,7 +118,7 @@ final class MediaController extends Controller
         return [
             'id' => $media->id,
             'url' => $media->url('full'),
-            'thumb_url' => $media->isImage() ? $media->url('thumb') : null,
+            'thumb_url' => $media->isImage() ? $media->url() : null,
             'filename' => $media->filename,
             'original_name' => $media->originalName,
             'mime' => $media->mime,

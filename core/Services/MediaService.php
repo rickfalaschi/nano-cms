@@ -23,6 +23,11 @@ final class MediaService
 
     /**
      * Process a $_FILES entry, validate, persist file + DB row.
+     *
+     * Note: this engine version does not generate image variants. Originals
+     * are served as-is. If you need responsive images, use srcset/<picture>
+     * in the theme with externally-prepared assets, or reintroduce a sizes
+     * subsystem in a future revision.
      */
     public function upload(array $uploaded): Media
     {
@@ -114,134 +119,7 @@ final class MediaService
             @unlink($original);
         }
 
-        $sizes = App::instance()->config->site('image_sizes');
-        if (is_array($sizes)) {
-            foreach (array_keys($sizes) as $sizeKey) {
-                $sized = $uploadsPath . '/' . $sizeKey . '/' . $media->filename;
-                if (is_file($sized)) {
-                    @unlink($sized);
-                }
-            }
-        }
-
         App::instance()->db->delete('media', ['id' => $media->id]);
-    }
-
-    /**
-     * Generate (or return cached) sized variant. Returns absolute file path.
-     */
-    public function generateSize(Media $media, string $size): ?string
-    {
-        $sizeDef = App::instance()->config->site('image_sizes.' . $size);
-        if (!is_array($sizeDef)) {
-            return null;
-        }
-
-        $uploadsPath = App::instance()->config->path('uploads');
-        $sourcePath = $uploadsPath . '/' . $media->filename;
-        if (!is_file($sourcePath)) {
-            return null;
-        }
-
-        if (!str_starts_with($media->mime, 'image/') || $media->mime === 'image/svg+xml') {
-            return $sourcePath;
-        }
-
-        $sizeDir = $uploadsPath . '/' . $size;
-        if (!is_dir($sizeDir)) {
-            @mkdir($sizeDir, 0775, true);
-            @chmod($sizeDir, 0775);
-        }
-        $destPath = $sizeDir . '/' . $media->filename;
-
-        if (is_file($destPath) && filemtime($destPath) >= filemtime($sourcePath)) {
-            return $destPath;
-        }
-
-        $width = (int) ($sizeDef['width'] ?? 0);
-        $height = (int) ($sizeDef['height'] ?? 0);
-        $crop = (bool) ($sizeDef['crop'] ?? false);
-
-        if ($width <= 0 && $height <= 0) {
-            return $sourcePath;
-        }
-
-        $info = @getimagesize($sourcePath);
-        if (!is_array($info)) {
-            return $sourcePath;
-        }
-
-        [$srcW, $srcH, $type] = $info;
-
-        $src = match ($type) {
-            IMAGETYPE_JPEG => @imagecreatefromjpeg($sourcePath),
-            IMAGETYPE_PNG => @imagecreatefrompng($sourcePath),
-            IMAGETYPE_GIF => @imagecreatefromgif($sourcePath),
-            IMAGETYPE_WEBP => @imagecreatefromwebp($sourcePath),
-            default => null,
-        };
-        if (!$src) {
-            return $sourcePath;
-        }
-
-        if ($crop && $width > 0 && $height > 0) {
-            $srcRatio = $srcW / max(1, $srcH);
-            $destRatio = $width / max(1, $height);
-            if ($srcRatio > $destRatio) {
-                $cropH = $srcH;
-                $cropW = (int) round($srcH * $destRatio);
-                $cropX = (int) round(($srcW - $cropW) / 2);
-                $cropY = 0;
-            } else {
-                $cropW = $srcW;
-                $cropH = (int) round($srcW / $destRatio);
-                $cropX = 0;
-                $cropY = (int) round(($srcH - $cropH) / 2);
-            }
-            $dst = imagecreatetruecolor($width, $height);
-            $this->preserveTransparency($dst, $type);
-            imagecopyresampled($dst, $src, 0, 0, $cropX, $cropY, $width, $height, $cropW, $cropH);
-            $newW = $width;
-            $newH = $height;
-        } else {
-            $maxW = $width > 0 ? $width : PHP_INT_MAX;
-            $maxH = $height > 0 ? $height : PHP_INT_MAX;
-            $ratio = min($maxW / $srcW, $maxH / $srcH, 1.0);
-            $newW = (int) max(1, round($srcW * $ratio));
-            $newH = (int) max(1, round($srcH * $ratio));
-            if ($newW === $srcW && $newH === $srcH) {
-                imagedestroy($src);
-                copy($sourcePath, $destPath);
-                return $destPath;
-            }
-            $dst = imagecreatetruecolor($newW, $newH);
-            $this->preserveTransparency($dst, $type);
-            imagecopyresampled($dst, $src, 0, 0, 0, 0, $newW, $newH, $srcW, $srcH);
-        }
-
-        match ($type) {
-            IMAGETYPE_PNG => imagepng($dst, $destPath, 9),
-            IMAGETYPE_GIF => imagegif($dst, $destPath),
-            IMAGETYPE_WEBP => imagewebp($dst, $destPath, 85),
-            default => imagejpeg($dst, $destPath, 85),
-        };
-
-        imagedestroy($src);
-        imagedestroy($dst);
-
-        return $destPath;
-    }
-
-    private function preserveTransparency(\GdImage $dst, int $type): void
-    {
-        if ($type === IMAGETYPE_PNG || $type === IMAGETYPE_WEBP || $type === IMAGETYPE_GIF) {
-            imagealphablending($dst, false);
-            imagesavealpha($dst, true);
-            $transparent = imagecolorallocatealpha($dst, 0, 0, 0, 127);
-            if ($transparent !== false) {
-                imagefilledrectangle($dst, 0, 0, imagesx($dst), imagesy($dst), $transparent);
-            }
-        }
     }
 
     private function uniqueFilename(string $name): string
