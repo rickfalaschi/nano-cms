@@ -67,7 +67,7 @@ $icon = function (string $name): string {
     <title><?= e($siteName) ?> — Admin</title>
     <link rel="stylesheet" href="<?= e(admin_url('__static/css/admin.css')) ?>">
 </head>
-<body>
+<body data-admin-base="<?= e(rtrim(admin_url(''), '/')) ?>">
     <div class="app">
         <aside class="app__sidebar">
             <div class="brand">

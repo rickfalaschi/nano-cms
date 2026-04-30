@@ -15,7 +15,7 @@
     <title>Mídia — Picker</title>
     <link rel="stylesheet" href="<?= e(admin_url('__static/css/admin.css')) ?>">
 </head>
-<body class="embed">
+<body class="embed" data-admin-base="<?= e(rtrim(admin_url(''), '/')) ?>">
     <main class="embed__main">
         <?= $_content ?>
     </main>

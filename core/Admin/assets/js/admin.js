@@ -5,6 +5,13 @@ import { Editor } from 'https://esm.sh/@tiptap/core@2.10.3';
 import StarterKit from 'https://esm.sh/@tiptap/starter-kit@2.10.3';
 import Link from 'https://esm.sh/@tiptap/extension-link@2.10.3';
 
+// Admin URL base (e.g. "/fulber/admin", "/admin").
+// Server-rendered into <body data-admin-base="..."> by the layout. Without
+// this, fetch() calls would hardcode "/admin/..." and break whenever the
+// project lives under a subpath like /fulber or /expmark. Trailing slash
+// is stripped server-side, so we always concat with a leading "/".
+const ADMIN_BASE = (document.body && document.body.dataset.adminBase) || '';
+
 const initRichText = (root) => {
   const editorEl = root.querySelector('[data-richtext-editor]');
   const sourceEl = root.querySelector('.richtext__source');
@@ -456,7 +463,7 @@ const openMediaPanel = (item) => {
     e.preventDefault();
     const fd = new FormData(altForm);
     fd.append('alt', panel.querySelector('[data-media-panel-alt]').value);
-    const res = await fetch(`/admin/media/${id}`, {
+    const res = await fetch(`${ADMIN_BASE}/media/${id}`, {
       method: 'POST',
       body: fd,
       credentials: 'same-origin',
@@ -479,7 +486,7 @@ const openMediaPanel = (item) => {
     const message = deleteForm.dataset.confirm || 'Excluir?';
     if (!window.confirm(message)) return;
     const fd = new FormData(deleteForm);
-    const res = await fetch(`/admin/media/${id}/delete`, {
+    const res = await fetch(`${ADMIN_BASE}/media/${id}/delete`, {
       method: 'POST',
       body: fd,
       credentials: 'same-origin',
