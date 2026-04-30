@@ -1818,7 +1818,13 @@ input, textarea, select { font-family: inherit; font-size: inherit; color: inher
   display: flex;
   align-items: stretch;
   justify-content: center;
-  padding: var(--s-5);
+  /* Smaller padding on mobile so the modal body uses more of the viewport;
+     desktop keeps a comfortable margin so users can still see the page
+     behind through the overlay. */
+  padding: var(--s-2);
+}
+@media (min-width: 700px) {
+  .modal { padding: var(--s-5); }
 }
 
 .modal[hidden] { display: none; }
@@ -1832,8 +1838,17 @@ input, textarea, select { font-family: inherit; font-size: inherit; color: inher
 
 .modal__body {
   position: relative;
-  width: min(100%, 1080px);
-  max-height: 90vh;
+  /*
+   * Sized for media-library-style content: needs room for a grid of
+   * thumbnails plus header chrome. 95vw caps it on small screens; the
+   * 1400px ceiling keeps it from spreading absurdly on ultrawide
+   * monitors (lines too long become hard to scan).
+   *
+   * Height is fixed (not just max-height) so the iframe inside has a
+   * predictable area to work with — no awkward scroll inside scroll.
+   */
+  width: min(95vw, 1400px);
+  height: min(90vh, 900px);
   margin: auto;
   background: var(--surface);
   border: 1px solid var(--line);
