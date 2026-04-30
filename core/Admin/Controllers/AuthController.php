@@ -43,7 +43,16 @@ final class AuthController extends Controller
 
     public function logout(Request $request): Response
     {
-        $this->verifyCsrfOrFail($request);
+        // verifyCsrfOrFail() returns a Response on failure (the 419 page)
+        // and null on success. Capturing the return value is mandatory —
+        // without it, an invalid token still falls through to logout(),
+        // letting an attacker force-logout users via cross-site forms
+        // (SameSite=Lax doesn't block top-level POSTs to same-site URLs).
+        $csrf = $this->verifyCsrfOrFail($request);
+        if ($csrf !== null) {
+            return $csrf;
+        }
+
         $this->app->auth->logout();
         return Response::redirect(admin_url('login'));
     }
